@@ -10,11 +10,21 @@ class TestBluetoothInterface(unittest.TestCase):
 
     def test_first_connect(self):
         """Test the usage of the with statement."""
+        kettle = self.get_kettle()
+        kettle._bt_interface._backend.ready_to_pair = True
+        kettle.firstConnect()
+        self.assertTrue(kettle._is_auth)
+        kettle._bt_interface._backend.ready_to_pair = False
+        kettle.firstConnect()
+        self.assertFalse(kettle._is_auth)
+
+
+    def get_kettle(self):
         backend = MockKettleBackend
         kettle = RedmondKettle(
-            'tesc_mac',
+            'test_mac',
             cache_timeout=600,
             adapter='hci0',
             backend=backend,
         )
-        kettle.firstConnect()
+        return kettle

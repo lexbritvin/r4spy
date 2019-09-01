@@ -1,9 +1,3 @@
-import time
-
-from btlewrap.base import BluetoothInterface, BluetoothBackendException
-from datetime import datetime, timedelta
-
-_HANDLE_READ_VERSION_BATTERY = 0x0004
 _HANDLE_R_CMD = 0x000b
 
 _HANDLE_W_SUBSCRIBE = 0x000c
@@ -16,6 +10,16 @@ _DATA_CMD_SYNC = 0x6e
 _DATA_CMD_LIGHTS = 0x32
 _DATA_BEGIN_BYTE = 0x55
 _DATA_END_BYTE = 0xaa
+
+import time
+
+from btlewrap.base import BluetoothInterface, BluetoothBackendException
+from datetime import datetime, timedelta
+
+from r4s.helper import wrap_send, to_bytes, unwrap_recv
+
+_HANDLE_READ_VERSION_BATTERY = 0x0004
+
 
 import logging
 from threading import Lock
@@ -46,7 +50,18 @@ class RedmondKettle(object):
         self.battery = None
         # TODO: Make it random on first run.
         self._key = [0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb]
-        self._iter = 0
+        self._icon = 'mdi:kettle'
+        self._avialible = False
+        self._is_on = False
+        self._heatorboil = '' #may be  '' or 'b' - boil or 'h' - heat to temp
+        self._temp = 0
+
+        self._is_busy = False
+        self._is_auth = False
+        self._status = '' #may be '' or '00' - OFF or '02' - ON
+        self._mode = '' #may be  '' or '00' - boil or '01' - heat to temp or '03' - backlight
+        self._time_upd = '00:00'
+        self._iter = 0 # int counter
 
     def firmware_version(self):
         """Return the firmware version."""
@@ -85,19 +100,19 @@ class RedmondKettle(object):
             iter += 1
         if answer:
             self._is_auth = True
-            self._avialible = True
-            if self.sendUseBackLight():
-                if self.sendSetLights():
-                    if self.sendSync():
-                        if self.sendStatus():
-                            self._time_upd = time.strftime("%H:%M")
+            self._available = True
+            # if self.sendUseBackLight():
+            #     if self.sendSetLights():
+            #         if self.sendSync():
+            #             if self.sendStatus():
+            #                 self._time_upd = time.strftime("%H:%M")
 
     def sendSubscribe(self):
         # TODO: Check firmware version.
         with self._bt_interface.connect(self._mac) as connection:
             # for the newer models a magic number must be written before we can read the current data
             try:
-                data = self.to_bytes(_DATA_CONNECT)
+                data = to_bytes(_DATA_CONNECT)
                 connection.write_handle(_HANDLE_W_SUBSCRIBE, data)  # pylint: disable=no-member
                 # If a sensor doesn't work, wait 5 minutes before retrying
             except BluetoothBackendException:
@@ -113,7 +128,7 @@ class RedmondKettle(object):
             try:
                 data = [_DATA_CMD_AUTH]
                 data.extend(self._key)
-                data = self.wrapSend(data)
+                data = wrap_send(self._iter, data)
                 res = connection.write_handle(_HANDLE_W_CMD, data)  # pylint: disable=no-member
                 self.iterase()
                 # If a sensor doesn't work, wait 5 minutes before retrying
@@ -121,28 +136,17 @@ class RedmondKettle(object):
                 self._last_read = datetime.now() - self._cache_timeout + \
                                   timedelta(seconds=300)
                 return
-            status = connection.read_handle(_HANDLE_R_CMD)  # pylint: disable=no-member
+            resp = connection.read_handle(_HANDLE_R_CMD)  # pylint: disable=no-member
+            iter, cmd, resp = unwrap_recv(resp)
+            status = resp[0]
+
             if status == 0x01:
                 answer = True
             else:
                 answer = False
             return answer
 
-    def to_bytes(self, data):
-        return bytes(data)
 
-    def wrapSend(self, data):
-        result = [_DATA_BEGIN_BYTE]
-        result.append(self._iter)
-        result.extend(data)
-        result.append(_DATA_END_BYTE)
-        return self.to_bytes(result)
-
-    def unwrapRecv(self, byte_arr):
-        int_array = [x for x in byte_arr]
-        start, iter, cmd = int_array[:3]
-        # TODO: Check iter == iter_init, cmd == cmd_init
-        return int_array[3:-1]
 
     def sendUseBackLight(self, onoff=0x01):
         with self._bt_interface.connect(self._mac) as connection:
@@ -151,7 +155,7 @@ class RedmondKettle(object):
                 # TODO: Not clear.
                 data = [0x37, 0xc8, 0xc8]
                 data.append(onoff)
-                data = self.wrapSend(data)
+                data = wrap_send(self._iter, data)
                 res = connection.write_handle(_HANDLE_W_CMD, data)  # pylint: disable=no-member
                 self.iterase()
                 # If a sensor doesn't work, wait 5 minutes before retrying
@@ -186,7 +190,7 @@ class RedmondKettle(object):
                 data.append(scale_light[2])
                 data.append(brightness)
                 data.extend(rgb2)
-                data = self.wrapSend(data)
+                data = wrap_send(self._iter, data)
                 res = connection.write_handle(_HANDLE_W_CMD, data)  # pylint: disable=no-member
                 self.iterase()
                 # If a sensor doesn't work, wait 5 minutes before retrying
@@ -209,7 +213,7 @@ class RedmondKettle(object):
                 data.extend(timeNow_hex)
                 # TODO: Unclear.
                 data.extend([0x00, 0x00])
-                data = self.wrapSend(data)
+                data = wrap_send(self._iter, data)
                 res = connection.write_handle(_HANDLE_W_CMD, data)  # pylint: disable=no-member
                 # If a sensor doesn't work, wait 5 minutes before retrying
                 self.iterase()
@@ -225,7 +229,7 @@ class RedmondKettle(object):
             # for the newer models a magic number must be written before we can read the current data
             try:
                 data = [_DATA_CMD_STATUS]
-                data = self.wrapSend(data)
+                data = wrap_send(self._iter, data)
                 res = connection.write_handle(_HANDLE_W_CMD, data)  # pylint: disable=no-member
                 # If a sensor doesn't work, wait 5 minutes before retrying
                 self.iterase()
