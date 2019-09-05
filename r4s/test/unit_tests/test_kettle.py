@@ -18,9 +18,13 @@ class TestBluetoothInterface(unittest.TestCase):
         kettle.first_connect()
         self.assertTrue(kettle._is_auth)
 
-        kettle = self.get_kettle()
-        kettle._bt_interface._backend.ready_to_pair = True
-        kettle.first_connect()
+        # TODO: Test status parse.
+        # TODO: Test sync.
+        # TODO: Test boil/heat.
+        # TODO: Test on/off.
+        # TODO: Test status change when on.
+        # TODO: Implement/test cache.
+        # TODO: Check stats parse.
 
     def get_kettle(self):
         backend = MockKettleBackend

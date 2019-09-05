@@ -13,15 +13,19 @@ _DATA_CONNECT = [0x01, 0x00]
 _DATA_CMD_AUTH = 0xff
 _DATA_CMD_SYNC = 0x6e
 
-_DATA_CMD_LIGHTS = 0x32
+_DATA_CMD_SET_LIGHTS = 0x32
+_DATA_CMD_GET_LIGHTS = 0x33
 _DATA_CMD_USE_BACKLIGHT = 0x37
 
+_DATA_CMD_STATS_USAGE = 0x47
+_DATA_CMD_STATS_TIMES = 0x50
+
+_DATA_CMD_FW = 0x01
 _DATA_CMD_ON = 0x03
 _DATA_CMD_OFF = 0x04
 _DATA_CMD_SET_MODE = 0x05
 _DATA_CMD_STATUS = 0x06
 
-_DATA_CMD_01 = 0x01  # TODO: Investigate. Empty body. Empty resp.
 _DATA_CMD_52 = 0x52  # TODO: Investigate. Body 00. Empty resp.
 _DATA_CMD_35 = 0x35  # TODO: Investigate. Body c8. Empty resp.
 
@@ -79,6 +83,7 @@ class RedmondKettle(object):
         self._iter = 0  # int counter
         self._curr_cmd = None
         self._data = None
+        # TODO: Prepare config for lights/backlight. Use current or overwrite.
 
     @staticmethod
     def _format_bytes(raw_data):
@@ -113,7 +118,10 @@ class RedmondKettle(object):
             self._available = True
             # If a sensor doesn't work, wait 5 minutes before retrying
             try:
+                self.send_get_fw(conn)
+                self.send_get_stats(conn)
                 self.send_use_backlight(conn)
+                self.send_get_lights(conn)
                 self.send_set_lights(conn)
                 ## TODO: Maybe sync shouldn't be sent often.
                 self.send_sync(conn)
@@ -155,6 +163,24 @@ class RedmondKettle(object):
 
         return status == 0x01
 
+    def send_get_fw(self, conn):
+        resp = self.send_cmd(conn, _DATA_CMD_FW, [])
+        if resp is None:
+            return False
+        # TODO: save fw.
+        return resp
+
+    def send_get_stats(self, conn):
+        usage = self.send_cmd(conn, _DATA_CMD_STATS_USAGE, [0x00])
+        times = self.send_cmd(conn, _DATA_CMD_STATS_TIMES, [0x00])
+        if usage is None or times is None:
+            return False
+        # TODO: Save usage and times.
+        watts = int.from_bytes(usage[6:10], 'little')  # watts / h
+        work_time = watts / 2200  # Time in h
+        on_times = int.from_bytes(times[3:5], 'little')
+        return True
+
     def send_use_backlight(self, conn, onoff=0x01):
         # TODO: Not clear.
         data = [0xc8, 0xc8, onoff]
@@ -182,10 +208,17 @@ class RedmondKettle(object):
         data.extend(rgb_mid)
         data.extend([scale_light[2], brightness])
         data.extend(rgb2)
-        resp = self.send_cmd(conn, _DATA_CMD_LIGHTS, data)
+        resp = self.send_cmd(conn, _DATA_CMD_SET_LIGHTS, data)
 
         if resp is None:
             return False
+        return True
+
+    def send_get_lights(self, conn, boil_light=0x00):
+        resp = self.send_cmd(conn, _DATA_CMD_GET_LIGHTS, [boil_light])
+        if resp is None:
+            return False
+        # TODO: Save lights
         return True
 
     def send_sync(self, conn, timezone=4):
