@@ -12,15 +12,15 @@ class TestBluetoothInterface(unittest.TestCase):
         """Test the usage of the with statement."""
         kettle = self.get_kettle()
         kettle._bt_interface._backend.ready_to_pair = False
-        kettle.firstConnect()
+        kettle.first_connect()
         self.assertFalse(kettle._is_auth)
         kettle._bt_interface._backend.ready_to_pair = True
-        kettle.firstConnect()
+        kettle.first_connect()
         self.assertTrue(kettle._is_auth)
 
         kettle = self.get_kettle()
         kettle._bt_interface._backend.ready_to_pair = True
-        kettle.firstConnect()
+        kettle.first_connect()
 
     def get_kettle(self):
         backend = MockKettleBackend

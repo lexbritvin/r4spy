@@ -48,7 +48,6 @@ ch.setLevel(logging.DEBUG)
 _LOGGER.addHandler(ch)
 
 
-
 class RedmondKettle(object):
     """"
     A class to read data from Mi Flora plant sensors.
@@ -78,23 +77,8 @@ class RedmondKettle(object):
         self._is_auth = False
         self._time_upd = '00:00'  # Save timestamp
         self._iter = 0  # int counter
-
-    def firmware_version(self):
-        """Return the firmware version."""
-        if (self._firmware_version is None) or \
-                (datetime.now() - timedelta(hours=24) > self._fw_last_read):
-            self._fw_last_read = datetime.now()
-            with self._bt_interface.connect(self._mac) as conn:
-                conn.read_handle(_HANDLE_READ_VERSION_BATTERY)  # pylint: disable=no-member
-                _LOGGER.debug('Received result for handle %s: %s',
-                              _HANDLE_READ_VERSION_BATTERY, self._format_bytes(res))
-            if res is None:
-                self.battery = 0
-                self._firmware_version = None
-            else:
-                self.battery = res[0]
-                self._firmware_version = "".join(map(chr, res[2:]))
-        return self._firmware_version
+        self._curr_cmd = None
+        self._data = None
 
     @staticmethod
     def _format_bytes(raw_data):
@@ -103,17 +87,17 @@ class RedmondKettle(object):
             return 'None'
         return ' '.join([format(c, "02x") for c in raw_data]).upper()
 
-    def firstConnect(self):
+    def first_connect(self):
         self._is_busy = True
         self._iter = 0
         i = 0
-        # TODO: Check wait for notification.
+
         with self._bt_interface.connect(self._mac) as conn:
             while i < self.retries:
                 answer = False
                 try:
-                    if self.sendSubscribe(conn) \
-                            and self.sendAuth(conn):
+                    self.send_subscribe(conn)
+                    if self.send_auth(conn):
                         answer = True
                         break
                 except BluetoothBackendException:
@@ -129,10 +113,11 @@ class RedmondKettle(object):
             self._available = True
             # If a sensor doesn't work, wait 5 minutes before retrying
             try:
-                self.sendUseBackLight(conn)
-                self.sendSetLights(conn)
-                self.sendSync(conn)
-                self.sendStatus(conn)
+                self.send_use_backlight(conn)
+                self.send_set_lights(conn)
+                ## TODO: Maybe sync shouldn't be sent often.
+                self.send_sync(conn)
+                self.send_status(conn)
                 self._time_upd = time.strftime("%H:%M")
 
             except BluetoothBackendException as e:
@@ -141,7 +126,7 @@ class RedmondKettle(object):
                 self._last_read = datetime.now() - self._cache_timeout + timedelta(seconds=300)
                 return False
 
-    def sendSubscribe(self, conn):
+    def send_subscribe(self, conn):
         # for the newer models a magic number must be written before we can read the current data
         data = to_bytes(_DATA_CONNECT)
         conn.write_handle(_HANDLE_W_SUBSCRIBE, data)  # pylint: disable=no-member
@@ -162,41 +147,24 @@ class RedmondKettle(object):
         # Save data to process in parent callback.
         self._data = data
 
-
-    def sendAuth(self, conn):
-        self._curr_cmd = _DATA_CMD_AUTH
-        data = [self._curr_cmd]
-        data.extend(self._key)
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
-
-        if not success or self._data is None:
+    def send_auth(self, conn):
+        resp = self.send_cmd(conn, _DATA_CMD_AUTH, self._key)
+        if resp is None:
             return False
-        resp = self._data
-
-        self.inc_counter()
         status = resp[0]
 
-        if status == 0x01:
-            answer = True
-        else:
-            answer = False
-        return answer
+        return status == 0x01
 
-    def sendUseBackLight(self, conn, onoff=0x01):
+    def send_use_backlight(self, conn, onoff=0x01):
         # TODO: Not clear.
-        self._curr_cmd = _DATA_CMD_USE_BACKLIGHT
-        data = [self._curr_cmd, 0xc8, 0xc8, onoff]
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
-
-        if not success or self._data is None:
+        data = [0xc8, 0xc8, onoff]
+        resp = self.send_cmd(conn, _DATA_CMD_USE_BACKLIGHT, data)
+        if resp is None:
             return False
-        self.inc_counter()
 
         return True
 
-    def sendSetLights(self, conn, boil_light=0x00):  # 00 - boil light    01 - backlight
+    def send_set_lights(self, conn, boil_light=0x00):  # 00 - boil light    01 - backlight
         if boil_light == 0x00:
             scale_light = [0x28, 0x46, 0x64]
         else:
@@ -205,96 +173,87 @@ class RedmondKettle(object):
         rgb2 = [0xff, 0x00, 0x00]
         rgb_mid = [0x00, 0xff, 0x00]
         brightness = 0x5e
-        self._curr_cmd = _DATA_CMD_LIGHTS
-        data = [self._curr_cmd]
-        # Boil light. 0x01 backlight.
-        data.append(boil_light)
-        data.append(scale_light[0])
-        data.append(brightness)
-        data.extend(rgb1)
-        data.append(scale_light[1])
-        data.append(brightness)
-        data.extend(rgb_mid)
-        data.append(scale_light[2])
-        data.append(brightness)
-        data.extend(rgb2)
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
 
-        if not success or self._data is None:
+        # Prepare light data.
+        data = [boil_light]  # Boil light. 0x01 backlight.
+        data.extend([scale_light[0], brightness])
+        data.extend(rgb1)
+        data.extend([scale_light[1], brightness])
+        data.extend(rgb_mid)
+        data.extend([scale_light[2], brightness])
+        data.extend(rgb2)
+        resp = self.send_cmd(conn, _DATA_CMD_LIGHTS, data)
+
+        if resp is None:
             return False
-        self.inc_counter()
         return True
 
-    def sendSync(self, conn, timezone=4):
-        ## TODO: Maybe sync shouldn't be sent often.
+    def send_sync(self, conn, timezone=4):
         tmz = (timezone * 60 * 60, 2)
         now = (int(time.mktime(datetime.now().timetuple())), 4)
         tmz_sign = 0x00 if timezone >= 0 else 0x01  # TODO: Possibly 0x01 for negative timezone, need to discover.
 
-        self._curr_cmd = _DATA_CMD_SYNC
-        data = [self._curr_cmd, tmz, now]
         # TODO: Unclear.
-        data.extend([tmz_sign, 0x00])
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
-
-        if not success or self._data is None:
+        data = [tmz, now, tmz_sign, 0x00]
+        resp = self.send_cmd(conn, _DATA_CMD_SYNC, data)
+        if resp is None:
             return False
-        self.inc_counter()
+
         return True
 
-    def sendStatus(self, conn):
-        self._curr_cmd = _DATA_CMD_STATUS
-        data = [self._curr_cmd]
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
-
-        if not success or self._data is None:
+    def send_status(self, conn):
+        resp = self.send_cmd(conn, _DATA_CMD_STATUS, [])
+        if resp is None:
             return False
-        self.inc_counter()
-        self.status = parse_status(self._data)
+        self.status = parse_status(resp)
         return True
 
-    def sendOn(self, conn):
-        self._curr_cmd = _DATA_CMD_ON
-        data = [self._curr_cmd]
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
-
-        if not success or self._data is None:
+    def send_on(self, conn):
+        resp = self.send_cmd(conn, _DATA_CMD_ON, [])
+        if resp is None:
             return False
-        self.inc_counter()
         return True
 
-    def sendOff(self, conn):
-        self._curr_cmd = _DATA_CMD_OFF
-        data = [self._curr_cmd]
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
-
-        if not success or self._data is None:
+    def send_off(self, conn):
+        resp = self.send_cmd(conn, _DATA_CMD_OFF, [])
+        if resp is None:
             return False
-        self.inc_counter()
         return True
 
-    def sendMode(self, conn, mode, temp):   # 00 - boil 01 - heat to temp 03 - backlight (boil by default)    temp - in HEX
-        self._curr_cmd = _DATA_CMD_SET_MODE
-        data = [self._curr_cmd]
-        data.extend(prepare_mode({
+    def send_mode(self, conn, mode, temp):
+        # Mode: 00 - boil 01 - heat to temp 03 - backlight (boil by default)
+        data = prepare_mode({
             'mode': mode,
             'tgtemp': temp,
-        }))
-        data = wrap_send(self._iter, data)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3, data)
+        })
+        resp = self.send_cmd(conn, _DATA_CMD_SET_MODE, data)
 
-        if not success or self._data is None:
+        if resp is None:
             return False
-        self.inc_counter()
         return True
 
+    def send_cmd(self, conn, cmd, data):
+        # Save cmd to compare on notification handle.
+        self._curr_cmd = cmd
+
+        # Prepare data to send.
+        req_data = [self._curr_cmd]
+        req_data.extend(data)
+        req_data = wrap_send(self._iter, req_data)
+
+        # Write and wait for response in self.handleNotification.
+        conn._DATA_MODE_LISTEN = req_data
+        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3)
+        if not success or self._data is None:
+            return None
+
+        # Update counter on success.
+        self.inc_counter()
+
+        return self._data
+
     ### additional methods
-    def inc_counter(self):  # counter
+    def inc_counter(self):
         self._iter += 1
         if self._iter >= 255:
             self._iter = 0

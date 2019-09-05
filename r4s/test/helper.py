@@ -59,8 +59,13 @@ class MockKettleBackend(AbstractBackend):
 
     def wait_for_notification(self, handle, delegate, notification_timeout):
         """same as write_handle. Delegate is not used, yet."""
-        delegate.handleNotification(bytes([int(x, 16) for x in "54 3d 32 37 2e 33 20 48 3d 32 37 2e 30 00".split()]))
-        return self.write_handle(handle, self._DATA_MODE_LISTEN)
+        self.write_handle(handle, self._DATA_MODE_LISTEN)
+        if handle == kettle._HANDLE_W_CMD:
+            resp = self.read_handle(kettle._HANDLE_R_CMD)
+            delegate.handleNotification(kettle._HANDLE_R_CMD, resp)
+            return True
+
+        return False
 
     def cmd_handle_read(self):
         if not self.cmd_responses:
