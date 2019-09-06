@@ -1,8 +1,9 @@
 """Helpers for test cases."""
 from btlewrap.base import AbstractBackend
 
-from r4s.helper import unwrap_recv, to_bytes, wrap_send
-from r4s import kettle
+from r4s.kettle.kettle import _HANDLE_R_CMD, _HANDLE_W_CMD, _HANDLE_W_SUBSCRIBE
+from r4s.kettle.commands import *
+
 
 class MockKettleBackend(AbstractBackend):
     """Mockup of a Backend and Sensor.
@@ -15,40 +16,76 @@ class MockKettleBackend(AbstractBackend):
 
     def __init__(self, adapter='hci0'):
         super(MockKettleBackend, self).__init__(adapter)
-        self.written_handles = []
-        self.override_read_handles = {
-            kettle._HANDLE_R_CMD: self.cmd_handle_read,
-        }
-        self.override_write_handles = {
-            kettle._HANDLE_W_SUBSCRIBE: self.subscribe_handle_write,
-            kettle._HANDLE_W_CMD: self.cmd_handle_write,
-        }
-        self.cmd_handlers = {
-            kettle._DATA_CMD_AUTH: self.cmd_auth,
-            kettle._DATA_CMD_FW: self.cmd_fw,
-            kettle._DATA_CMD_USE_BACKLIGHT: self.cmd_backlight,
-            kettle._DATA_CMD_SET_LIGHTS: self.cmd_set_lights,
-            kettle._DATA_CMD_GET_LIGHTS: self.cmd_get_lights,
-            kettle._DATA_CMD_SYNC: self.cmd_sync,
-            kettle._DATA_CMD_STATUS: self.cmd_status,
-            kettle._DATA_CMD_SET_MODE: self.cmd_set_mode,
-            kettle._DATA_CMD_ON: self.cmd_on,
-            kettle._DATA_CMD_OFF: self.cmd_off,
-            kettle._DATA_CMD_STATS_USAGE: self.cmd_stats_usage,
-            kettle._DATA_CMD_STATS_TIMES: self.cmd_stats_times,
-        }
+        # Read handlers.
         self.cmd_responses = []
+        self.override_read_handles = {
+            _HANDLE_R_CMD: self.cmd_handle_read,
+        }
+        # Write handlers.
+        self.written_handles = []
+        self.override_write_handles = {
+            _HANDLE_W_SUBSCRIBE: self.subscribe_handle_write,
+            _HANDLE_W_CMD: self.cmd_handle_write,
+        }
+        # Write cmd handlers.
+        self.cmd_handlers = {
+            CmdAuth.CODE: self.cmd_auth,
+            CmdFw.CODE: self.cmd_fw,
+            CmdUseBacklight.CODE: self.cmd_backlight,
+            CmdSetLights.CODE: self.cmd_set_lights,
+            CmdGetLights.CODE: self.cmd_get_lights,
+            CmdSync.CODE: self.cmd_sync,
+            CmdStatus.CODE: self.cmd_status,
+            CmdSetMode.CODE: self.cmd_set_mode,
+            CmdOn.CODE: self.cmd_on,
+            CmdOff.CODE: self.cmd_off,
+            CmdStatsUsage.CODE: self.cmd_stats_usage,
+            CmdStatsTimes.CODE: self.cmd_stats_times,
+        }
+
+        # Current state.
         self.is_available = True
-        self.counter = 0
-        self.is_subscribed = False
-        self.auth_key = None
+        self.is_connected = False
         self.ready_to_pair = False
+        self.is_subscribed = False
+        self.is_authed = False
+        self.auth_keys = set()
+        self.counter = 0
+        # Internal status.
+        # Firmware version.
+        self.fw_version = [3, 10]
+        # Statistics data.
+        self.statistics = KettleStatistics()
+        self.statistics.watts = 102252
+        self.statistics.on_times = 1223
+        # Current status.
+        self.status = KettleStatus(
+            mode=MODE_BOIL,
+            curr_temp=40,
+            trg_temp=0,
+            status=STATUS_OFF,
+            boil_time=0
+        )
+
+    def connect(self, mac):
+        self.is_connected = True
+
+    def disconnect(self):
+        self.is_connected = False
+        self.is_subscribed = False
+        self.is_authed = None
 
     def check_backend(self):
         """This backend is available when the field is set accordingly."""
         return self.is_available
 
+    def check_connected(self):
+        if not self.is_connected:
+            raise ValueError('Not connected')
+        return True
+
     def read_handle(self, handle):
+        self.check_connected()
         """Read one of the handles that are implemented."""
         if handle in self.override_read_handles:
             return self.override_read_handles[handle]()
@@ -56,11 +93,12 @@ class MockKettleBackend(AbstractBackend):
 
     def write_handle(self, handle, value):
         """Writing handles just stores the results in a list."""
+        self.check_connected()
         self.written_handles.append((handle, value))
-        if handle != kettle._HANDLE_W_SUBSCRIBE and not self.is_subscribed:
+
+        if handle != _HANDLE_W_SUBSCRIBE and not self.is_subscribed:
             raise ValueError('you are not subscribed to make writes')
-        # TODO: Return unauthed response.
-        # TODO: Send error on unauthed.
+
         if handle in self.override_write_handles:
             return self.override_write_handles[handle](value)
         raise ValueError('handle not implemented in mockup')
@@ -68,9 +106,9 @@ class MockKettleBackend(AbstractBackend):
     def wait_for_notification(self, handle, delegate, notification_timeout):
         """same as write_handle. Delegate is not used, yet."""
         self.write_handle(handle, self._DATA_MODE_LISTEN)
-        if handle == kettle._HANDLE_W_CMD:
-            resp = self.read_handle(kettle._HANDLE_R_CMD)
-            delegate.handleNotification(kettle._HANDLE_R_CMD, resp)
+        if handle == _HANDLE_W_CMD:
+            resp = self.read_handle(_HANDLE_R_CMD)
+            delegate.handleNotification(_HANDLE_R_CMD, resp)
             return True
 
         return False
@@ -78,42 +116,54 @@ class MockKettleBackend(AbstractBackend):
     def cmd_handle_read(self):
         if not self.cmd_responses:
             raise ValueError('no writes were registered')
+
+        # Pop the latest response.
         counter, cmd, data = self.cmd_responses[-1]
-        resp = [cmd]
-        resp.extend(data)
-        return wrap_send(counter, resp)
+        return AbstractCommand.wrap(counter, cmd, data)
 
     def subscribe_handle_write(self, value):
-        # TODO: Save device is subsribed.
         self.is_subscribed = True
         return ['wr']
 
     def cmd_handle_write(self, value):
-        self.counter, cmd, data = unwrap_recv(value)
-        if not self.auth_key and cmd != kettle._DATA_CMD_AUTH:
+        self.counter, cmd, data = AbstractCommand.unwrap(value)
+        if not self.is_authed and cmd != CmdAuth.CODE:
             raise ValueError('you are not authorised to send commands')
+
         if cmd in self.cmd_handlers:
             resp = self.cmd_handlers[cmd](data)
             self.cmd_responses.append((self.counter, cmd, resp))
             return ['wr']
+
         raise ValueError('cmd not implemented in mockup')
 
+    def check_key(self, key):
+        if len(key) != 8:
+            raise ValueError('Auth key is not 8 bytes long.')
+        return bytes(key) in self.auth_keys
+
     def cmd_auth(self, data):
+        if self.check_key(data):
+            self.is_authed = True
+            return [RESPONSE_SUCCESS]
+
         if not self.ready_to_pair:
-            return [0x00]
-        self.auth_key = to_bytes(data)
-        return [0x01]
+            return [RESPONSE_FAIL]
+
+        self.is_authed = True
+        self.auth_keys.add(bytes(data))
+        return [RESPONSE_SUCCESS]
 
     def cmd_fw(self, data):
-        return [3, 10]
+        return self.fw_version
 
     def cmd_backlight(self, data):
         # TODO: Handle somehow.
-        return [0x00]
+        return [RESPONSE_NEUTRAL]
 
     def cmd_set_lights(self, data):
         # TODO: Handle somehow.
-        return [0x00]
+        return [RESPONSE_NEUTRAL]
 
     def cmd_get_lights(self, data):
         # TODO: Return current set values.
@@ -121,29 +171,28 @@ class MockKettleBackend(AbstractBackend):
 
     def cmd_sync(self, data):
         # TODO: Save time.
-        return [0x00]
+        return [RESPONSE_NEUTRAL]
 
     def cmd_status(self, data):
-        # TODO: Return current status.
-        return [0x00, 0x00, 0x00, 0x00, 0x01, 0x29, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7b, 0x00, 0x00]
+        return self.status.to_arr()
 
     def cmd_set_mode(self, data):
         # TODO: Save mode.
         # TODO: Handle incorrect cmd. Return 0x00
-        return [0x01]
+        return [RESPONSE_SUCCESS]
 
     def cmd_on(self, data):
         # TODO: Save status.
         # TODO: Handle incorrect cmd. Return 0x00
-        return [0x01]
+        return [RESPONSE_SUCCESS]
 
     def cmd_off(self, data):
         # TODO: Save status.
         # TODO: Handle incorrect cmd. Return 0x00
-        return [0x01]
+        return [RESPONSE_SUCCESS]
 
     def cmd_stats_usage(self, data):
-        return [0x00, 0x00, 0x9b, 0x8d, 0x02, 0x00, 0x6c, 0x8f, 0x01, 0x00, 0xD8, 0x04, 0x00, 0x00, 0x00, 0x00]
+        return self.statistics.usage_to_arr()
 
     def cmd_stats_times(self, data):
-        return [0x00, 0x00, 0x00, 0xc7, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        return self.statistics.times_to_arr()
