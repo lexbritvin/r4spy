@@ -15,18 +15,30 @@ MODE_LIGHT = 0x03
 STATUS_OFF = 0x00
 STATUS_ON = 0x02
 
+BOIL_TIME_RELATIVE_DEFAULT = 0x80  # Relative val for boil time.
+BOIL_TIME_MAX = 5  # The range according to the App [-5:5].
+BOIL_TEMP = 0x00
+MAX_TEMP = 90  # According to
+MIN_TEMP = 35  # the official App.
+ERROR_TEMP_HEAT = 20  # Small number to prevent heating.
+
 
 class KettleStatus:
 
-    def __init__(self, mode=0, trg_temp=0, curr_temp=0, status=STATUS_OFF, boil_time=0):
+    def __init__(self, mode=MODE_BOIL, trg_temp=BOIL_TEMP, curr_temp=0, on=STATUS_OFF, boil_time=0):
+        if mode not in [MODE_BOIL, MODE_HEAT, MODE_LIGHT]:
+            ValueError("Incorrect mode %s.".format(mode))
+        if not self.is_allowed_temp(mode, trg_temp):
+            ValueError("Incorrect target temp %s for mode %s. Allowed range [%s:%s]"
+                       .format(trg_temp, mode, MIN_TEMP, MAX_TEMP))
+        if abs(boil_time) > BOIL_TIME_MAX:
+            ValueError("Incorrect boil time %s specified. Allowed range [%s:%s]"
+                       .format(boil_time, -BOIL_TIME_MAX, BOIL_TIME_MAX))
         self.mode = mode
-        min_temp = 40
-        max_temp = 99 if mode != MODE_HEAT else 85
-        default = 0 if mode == MODE_BOIL else 20  # Don't put big number if misconfigured on heat.
-        self.trg_temp = trg_temp if trg_temp >= min_temp or trg_temp <= max_temp else default
+        self.trg_temp = trg_temp
         self.curr_temp = curr_temp
-        self.status = status
-        self.boil_time = (0 if abs(boil_time) > 5 else boil_time)
+        self.on = on
+        self.boil_time = boil_time
 
     def __eq__(self, other):
         if not isinstance(other, KettleStatus):
@@ -36,25 +48,33 @@ class KettleStatus:
         return self.mode == other.mode \
                and self.trg_temp == other.trg_temp \
                and self.curr_temp == other.curr_temp \
-               and self.status == other.status \
+               and self.on == other.on \
                and self.boil_time == other.boil_time
+
+    @staticmethod
+    def is_allowed_temp(mode, trg_temp):
+        if mode in [MODE_BOIL, MODE_LIGHT] and trg_temp == BOIL_TEMP:
+            return True
+        if MIN_TEMP <= trg_temp or trg_temp <= MAX_TEMP:
+            return False
+        return False
 
     @classmethod
     def from_bytes(cls, data):
         mode = data[0]  # Boil/Heat/Light.
         trg_temp = data[2]  # Target temp.
-        temp = data[5]  # Current temp.
+        curr_temp = data[5]  # Current temp.
         status = data[8]  # On/Off
-        boil_time = data[13] - 0x80  # Relative boil time in range [-5:5]
-        return cls(mode, status, temp, trg_temp, boil_time)
+        boil_time = data[13] - BOIL_TIME_RELATIVE_DEFAULT
+        return cls(mode, trg_temp, curr_temp, status, boil_time)
 
     def to_arr(self):
         data = [0x00] * 16
         data[0] = self.mode
         data[2] = self.trg_temp
         data[5] = self.curr_temp
-        data[8] = self.status
-        data[13] = 0x80 + self.boil_time
+        data[8] = self.on
+        data[13] = BOIL_TIME_RELATIVE_DEFAULT + self.boil_time
         return data
 
 
@@ -171,17 +191,14 @@ class CmdSetMode(AbstractCommand):
     CODE = 0x05
 
     def __init__(self, mode, temp, boil_time):
-        self.mode = mode
-        self.temp = temp
-        self.boil_time = boil_time
+        self.status = KettleStatus(
+            mode=mode,
+            trg_temp=temp,
+            boil_time=boil_time
+        )
 
     def to_arr(self):
-        status = KettleStatus(
-            mode=self.mode,
-            trg_temp=self.temp,
-            boil_time=self.boil_time
-        )
-        return status.to_arr()
+        return self.status.to_arr()
 
     def parse_resp(self, resp):
         return resp[0] == RESPONSE_SUCCESS

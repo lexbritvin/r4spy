@@ -63,7 +63,7 @@ class MockKettleBackend(AbstractBackend):
             mode=MODE_BOIL,
             curr_temp=40,
             trg_temp=0,
-            status=STATUS_OFF,
+            on=STATUS_OFF,
             boil_time=0
         )
 
@@ -177,18 +177,26 @@ class MockKettleBackend(AbstractBackend):
         return self.status.to_arr()
 
     def cmd_set_mode(self, data):
-        # TODO: Save mode.
-        # TODO: Handle incorrect cmd. Return 0x00
+        try:
+            new_status = KettleStatus.from_bytes(data)
+        except ValueError:
+            return [RESPONSE_FAIL]
+
+        # Save mode.
+        self.status.mode = new_status.mode
+        self.status.trg_temp = new_status.trg_temp
+        self.status.boil_time = new_status.boil_time
+
         return [RESPONSE_SUCCESS]
 
     def cmd_on(self, data):
-        # TODO: Save status.
-        # TODO: Handle incorrect cmd. Return 0x00
+        # TODO: Return 0x00 on some internal error.
+        self.status.on = STATUS_ON
         return [RESPONSE_SUCCESS]
 
     def cmd_off(self, data):
-        # TODO: Save status.
-        # TODO: Handle incorrect cmd. Return 0x00
+        # TODO: Return 0x00 on some internal error.
+        self.status.on = STATUS_OFF
         return [RESPONSE_SUCCESS]
 
     def cmd_stats_usage(self, data):
