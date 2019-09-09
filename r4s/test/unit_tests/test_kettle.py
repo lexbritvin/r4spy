@@ -1,7 +1,7 @@
 """Tests for the BluetoothInterface class."""
 import unittest
 
-from r4s.kettle.commands import *
+from r4s.protocol.commands import *
 from r4s.kettle.kettle import RedmondKettle
 from r4s.test.helper import MockKettleBackend
 
@@ -76,12 +76,12 @@ class TestBluetoothInterface(unittest.TestCase):
         kettle.set_mode(True, MODE_BOIL)
         self.assertEqual(kettle.status, backend.status)
         self.assertEqual(backend.status.trg_temp, BOIL_TEMP)
-        self.assertEqual(kettle.status.on, STATUS_ON)
+        self.assertEqual(kettle.status.on, STATE_ON)
 
         # Test disable.
         kettle.set_mode(False)
         self.assertEqual(kettle.status, backend.status)
-        self.assertEqual(kettle.status.on, STATUS_OFF)
+        self.assertEqual(kettle.status.on, STATE_OFF)
 
         # Test incorrect temp.
         old_temp = backend.status.trg_temp

@@ -2,7 +2,7 @@
 from btlewrap.base import AbstractBackend
 
 from r4s.kettle.kettle import _HANDLE_R_CMD, _HANDLE_W_CMD, _HANDLE_W_SUBSCRIBE
-from r4s.kettle.commands import *
+from r4s.protocol.commands import *
 
 
 class MockKettleBackend(AbstractBackend):
@@ -63,7 +63,7 @@ class MockKettleBackend(AbstractBackend):
             mode=MODE_BOIL,
             curr_temp=40,
             trg_temp=0,
-            on=STATUS_OFF,
+            state=STATE_OFF,
             boil_time=0
         )
 
@@ -191,12 +191,12 @@ class MockKettleBackend(AbstractBackend):
 
     def cmd_on(self, data):
         # TODO: Return 0x00 on some internal error.
-        self.status.on = STATUS_ON
+        self.status.state = STATE_ON
         return [RESPONSE_SUCCESS]
 
     def cmd_off(self, data):
         # TODO: Return 0x00 on some internal error.
-        self.status.on = STATUS_OFF
+        self.status.state = STATE_OFF
         return [RESPONSE_SUCCESS]
 
     def cmd_stats_usage(self, data):
