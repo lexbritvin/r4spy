@@ -1,8 +1,8 @@
 from r4s.protocol import int_to_arr, int_from_bytes
-from r4s.protocol.responses import AbstractResponse
+from r4s.protocol.responses import RedmondResponse
 
 
-class TenInformationResponse(AbstractResponse):
+class TenInformationResponse(RedmondResponse):
 
     def __init__(self, ten_num, err, work_time, spent_power, relay_turn_on_amount):
         self.ten_num = ten_num
@@ -31,7 +31,7 @@ class TenInformationResponse(AbstractResponse):
         return data
 
 
-class TurningOnCountResponse(AbstractResponse):
+class TurningOnCountResponse(RedmondResponse):
 
     def __init__(self, err, turning_on_amount):
         self.err = err

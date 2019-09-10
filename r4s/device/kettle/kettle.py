@@ -1,27 +1,19 @@
 import time
 from datetime import datetime, timedelta
 
-from btlewrap.base import BluetoothInterface, BluetoothBackendException
+from btlewrap.base import BluetoothBackendException
 
-from r4s.protocol.commands import *
+from r4s.device.device import RedmondDevice, _LOGGER
 
-import logging
 from threading import Lock
 
-_LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel('DEBUG')
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-_LOGGER.addHandler(ch)
-
-_HANDLE_R_CMD = 0x000b
-_HANDLE_W_SUBSCRIBE = 0x000c
-_HANDLE_W_CMD = 0x000e
-
-_DATA_SUBSCRIBE = [0x01, 0x00]
+from r4s.protocol.commands import CmdFw, Cmd5SetMode, Cmd3On, Cmd6Status, Cmd4Off, CmdSync, CmdAuth
+from r4s.protocol.commands_kettle import Cmd51GetLights
+from r4s.protocol.commands_stats import Cmd71StatsUsage, Cmd80StatsTimes
+from r4s.protocol.responses_kettle import MODE_BOIL, BOIL_TEMP, BOIL_TIME_MAX, LIGHT_TYPE_BOIL
 
 
-class RedmondKettle(object):
+class RedmondKettle(RedmondDevice):
     """"
     A class to read data from Mi Flora plant sensors.
     """
@@ -31,8 +23,7 @@ class RedmondKettle(object):
         Initialize a Mi Flora Poller for the given MAC address.
         """
 
-        self._mac = mac
-        self._bt_interface = BluetoothInterface(backend, adapter)
+        super().__init__(mac, backend, cache_timeout, retries, adapter)
         self._cache = None
         self._cache_timeout = timedelta(seconds=cache_timeout)
         self._last_read = None
@@ -49,16 +40,8 @@ class RedmondKettle(object):
         self._is_busy = False
         self._is_auth = False
         self._time_upd = '00:00'  # Save timestamp
-        self._iter = 0  # int counter
-        self._curr_cmd = None
-        self._data = None
-        # TODO: Prepare config for lights/backlight. Use current or overwrite.
 
-    def _send_subscribe(self, conn):
-        # for the newer models a magic number must be written before we can read the current data
-        data = bytes(_DATA_SUBSCRIBE)
-        conn.write_handle(_HANDLE_W_SUBSCRIBE, data)  # pylint: disable=no-member
-        return True
+        # TODO: Prepare config for lights/backlight. Use current or overwrite.
 
     def _try_auth(self, conn):
         i = 0
@@ -97,15 +80,13 @@ class RedmondKettle(object):
             try:
                 cmds = [
                     CmdFw(),
-                    CmdStatsUsage(),
-                    CmdStatsTimes(),
-                    CmdUseBacklight(True),
-                    CmdGetLights(LIGHT_TYPE_BOIL),
-                    CmdSetLights(LIGHT_TYPE_BOIL),
+                    Cmd71StatsUsage(),
+                    Cmd80StatsTimes(),
+                    Cmd51GetLights(LIGHT_TYPE_BOIL),
                     CmdSync(),
-                    CmdStatus()
+                    Cmd6Status()
                 ]
-                self._do_commands(conn, cmds)
+                self.do_commands(cmds)
                 self._time_upd = time.strftime("%H:%M")
 
             except BluetoothBackendException as e:
@@ -119,22 +100,22 @@ class RedmondKettle(object):
         if on_off:
             boil_time = self.status.boil_time if self.status else -BOIL_TIME_MAX
             cmds = [
-                # CmdSync(),
-                CmdSetMode(mode, temp, boil_time),
-                CmdOn(),
-                CmdStatus(),
+                CmdSync(),
+                Cmd5SetMode(mode, temp, boil_time),
+                Cmd3On(),
+                Cmd6Status(),
             ]
         else:
             cmds = [
-                # CmdSync(),
-                CmdOff(),
-                CmdStatus(),
+                CmdSync(),
+                Cmd4Off(),
+                Cmd6Status(),
             ]
 
         self.run_commands(cmds)
 
     def update_status(self):
-        cmds = [CmdStatus()]
+        cmds = [Cmd6Status()]
         with self._bt_interface.connect(self._mac) as conn:
             self._try_auth(conn)
             if not self._is_auth:
@@ -143,7 +124,7 @@ class RedmondKettle(object):
                 return
 
             try:
-                self._do_commands(conn, cmds)
+                self.do_commands(cmds)
 
             except BluetoothBackendException as e:
                 # TODO: Handle next time request.
@@ -161,8 +142,8 @@ class RedmondKettle(object):
                 time.sleep(5)
             with self._bt_interface.connect(self._mac) as conn:
                 try:
-                    self._send_subscribe(conn)
-                    self._do_commands(conn, [cmd_auth])
+                    self._send_subscribe()
+                    self.do_commands([cmd_auth])
                 except BluetoothBackendException:
                     # Try again.
                     _LOGGER.debug('Auth failed. Attempt no: %s. Trying again.', i + 1)
@@ -172,7 +153,7 @@ class RedmondKettle(object):
                     continue
 
                 try:
-                    self._do_commands(conn, cmds)
+                    self.do_commands(cmds)
                     break
                 except BluetoothBackendException as e:
                     # TODO: Handle next time request.
@@ -181,64 +162,13 @@ class RedmondKettle(object):
                     return False
                 break  # Success
 
-    def _do_commands(self, conn, cmds):
-        # TODO: Maybe send subscribe every time.
-        for cmd in cmds:
-            self._send_subscribe(conn)
-            resp = self._send_cmd(conn, cmd)
-            self._process_resp(cmd, resp)
-
-    def _send_cmd(self, conn, cmd: AbstractCommand):
-        # Save cmd to compare on notification handle.
-        self._curr_cmd = cmd
-
-        # Write and wait for response in self.handleNotification.
-        conn._DATA_MODE_LISTEN = cmd.wrapped(self._iter)
-        success = conn.wait_for_notification(_HANDLE_W_CMD, self, 3)
-        if not success or self._data is None:
-            return None
-
-        # Update counter on success.
-        self._inc_counter()
-
-        return self._data
-
     def _process_resp(self, cmd, resp):
         parsed = cmd.parse_resp(resp)
         if CmdAuth.CODE == cmd.CODE:
             self._is_auth = parsed
         elif CmdFw.CODE == cmd.CODE:
             self._firmware_version = parsed
-        elif cmd.CODE in [CmdStatsUsage.CODE, CmdStatsTimes.CODE]:
-            self.statistics = self.statistics + parsed if self.statistics is not None else parsed
-        elif cmd.CODE == CmdStatus.CODE:
+        elif Cmd71StatsUsage.CODE == cmd.CODE:
+            self.statistics = parsed
+        elif Cmd6Status.CODE == cmd.CODE:
             self.status = parsed
-
-    def handleNotification(self, handle, raw_data):  # pylint: disable=unused-argument,invalid-name
-        """ gets called by the bluepy backend when using wait_for_notification
-        """
-        self._data = None
-        if raw_data is None:
-            return
-        _LOGGER.debug('Received result for cmd "%s" on handle %s: %s', type(self._curr_cmd).__name__,
-                      handle, self._format_bytes(raw_data))
-        i, cmd, data = AbstractCommand.unwrap(raw_data)
-        if i != self._iter or self._curr_cmd.CODE != cmd:
-            # It is not the response for the request.
-            # TODO: Throw error or something.
-            return
-        # Save data to process in parent callback.
-        self._data = data
-
-    ### additional methods
-    def _inc_counter(self):
-        self._iter += 1
-        if self._iter > 255:
-            self._iter = 0
-
-    @staticmethod
-    def _format_bytes(raw_data):
-        """Prettyprint a byte array."""
-        if raw_data is None:
-            return 'None'
-        return ' '.join([format(c, "02x") for c in raw_data]).upper()

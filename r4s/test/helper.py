@@ -1,8 +1,11 @@
 """Helpers for test cases."""
 from btlewrap.base import AbstractBackend
 
-from r4s.kettle.kettle import _HANDLE_R_CMD, _HANDLE_W_CMD, _HANDLE_W_SUBSCRIBE
+from r4s.device.device import _HANDLE_R_CMD, _HANDLE_W_SUBSCRIBE, _HANDLE_W_CMD
 from r4s.protocol.commands import *
+from r4s.protocol.commands_kettle import *
+from r4s.protocol.commands_stats import *
+from r4s.protocol.responses_kettle import MODE_BOIL, STATE_OFF, STATE_ON
 
 
 class MockKettleBackend(AbstractBackend):
@@ -14,7 +17,7 @@ class MockKettleBackend(AbstractBackend):
     makes sensor to also test against a real sensor.
     """
 
-    def __init__(self, adapter='hci0'):
+    def __init__(self, adapter: str = 'hci0', address_type: str = 'public'):
         super(MockKettleBackend, self).__init__(adapter)
         # Read handlers.
         self.cmd_responses = []
@@ -31,16 +34,16 @@ class MockKettleBackend(AbstractBackend):
         self.cmd_handlers = {
             CmdAuth.CODE: self.cmd_auth,
             CmdFw.CODE: self.cmd_fw,
-            CmdUseBacklight.CODE: self.cmd_backlight,
-            CmdSetLights.CODE: self.cmd_set_lights,
-            CmdGetLights.CODE: self.cmd_get_lights,
+            Cmd55UseBacklight.CODE: self.cmd_backlight,
+            Cmd50SetLights.CODE: self.cmd_set_lights,
+            Cmd51GetLights.CODE: self.cmd_get_lights,
             CmdSync.CODE: self.cmd_sync,
-            CmdStatus.CODE: self.cmd_status,
-            CmdSetMode.CODE: self.cmd_set_mode,
-            CmdOn.CODE: self.cmd_on,
-            CmdOff.CODE: self.cmd_off,
-            CmdStatsUsage.CODE: self.cmd_stats_usage,
-            CmdStatsTimes.CODE: self.cmd_stats_times,
+            Cmd6Status.CODE: self.cmd_status,
+            Cmd5SetMode.CODE: self.cmd_set_mode,
+            Cmd3On.CODE: self.cmd_on,
+            Cmd4Off.CODE: self.cmd_off,
+            Cmd71StatsUsage.CODE: self.cmd_stats_usage,
+            Cmd80StatsTimes.CODE: self.cmd_stats_times,
         }
 
         # Current state.
@@ -55,9 +58,14 @@ class MockKettleBackend(AbstractBackend):
         # Firmware version.
         self.fw_version = [3, 10]
         # Statistics data.
-        self.statistics = KettleStatistics()
-        self.statistics.watts = 102252
-        self.statistics.on_times = 1223
+        self.statistics = TenInformationResponse(
+            ten_num=0,
+            err=0,
+            work_time=1223,
+            spent_power=102252,
+            relay_turn_on_amount=0,
+        )
+
         # Current status.
         self.status = KettleStatus(
             mode=MODE_BOIL,
@@ -119,14 +127,14 @@ class MockKettleBackend(AbstractBackend):
 
         # Pop the latest response.
         counter, cmd, data = self.cmd_responses[-1]
-        return AbstractCommand.wrap(counter, cmd, data)
+        return RedmondCommand.wrap(counter, cmd, data)
 
     def subscribe_handle_write(self, value):
         self.is_subscribed = True
         return ['wr']
 
     def cmd_handle_write(self, value):
-        self.counter, cmd, data = AbstractCommand.unwrap(value)
+        self.counter, cmd, data = RedmondCommand.unwrap(value)
         if not self.is_authed and cmd != CmdAuth.CODE:
             raise ValueError('you are not authorised to send commands')
 
@@ -145,25 +153,25 @@ class MockKettleBackend(AbstractBackend):
     def cmd_auth(self, data):
         if self.check_key(data):
             self.is_authed = True
-            return [RESPONSE_SUCCESS]
+            return SuccessResponse(True).to_arr()
 
         if not self.ready_to_pair:
-            return [RESPONSE_FAIL]
+            return SuccessResponse(False).to_arr()
 
         self.is_authed = True
         self.auth_keys.add(bytes(data))
-        return [RESPONSE_SUCCESS]
+        return SuccessResponse(True).to_arr()
 
     def cmd_fw(self, data):
         return self.fw_version
 
     def cmd_backlight(self, data):
         # TODO: Handle somehow.
-        return [RESPONSE_NEUTRAL]
+        return ErrorResponse(False).to_arr()
 
     def cmd_set_lights(self, data):
         # TODO: Handle somehow.
-        return [RESPONSE_NEUTRAL]
+        return ErrorResponse(False).to_arr()
 
     def cmd_get_lights(self, data):
         # TODO: Return current set values.
@@ -171,7 +179,7 @@ class MockKettleBackend(AbstractBackend):
 
     def cmd_sync(self, data):
         # TODO: Save time.
-        return [RESPONSE_NEUTRAL]
+        return ErrorResponse(False).to_arr()
 
     def cmd_status(self, data):
         return self.status.to_arr()
@@ -180,27 +188,27 @@ class MockKettleBackend(AbstractBackend):
         try:
             new_status = KettleStatus.from_bytes(data)
         except ValueError:
-            return [RESPONSE_FAIL]
+            return SuccessResponse(False).to_arr()
 
         # Save mode.
         self.status.mode = new_status.mode
         self.status.trg_temp = new_status.trg_temp
         self.status.boil_time = new_status.boil_time
 
-        return [RESPONSE_SUCCESS]
+        return SuccessResponse(True).to_arr()
 
     def cmd_on(self, data):
         # TODO: Return 0x00 on some internal error.
         self.status.state = STATE_ON
-        return [RESPONSE_SUCCESS]
+        return SuccessResponse(True).to_arr()
 
     def cmd_off(self, data):
         # TODO: Return 0x00 on some internal error.
         self.status.state = STATE_OFF
-        return [RESPONSE_SUCCESS]
+        return SuccessResponse(True).to_arr()
 
     def cmd_stats_usage(self, data):
-        return self.statistics.usage_to_arr()
+        return self.statistics.to_arr()
 
     def cmd_stats_times(self, data):
-        return self.statistics.times_to_arr()
+        return self.statistics.to_arr()

@@ -1,10 +1,11 @@
 from r4s.protocol.responses import SuccessResponse, ErrorResponse
+from r4s.protocol.responses_kettle import KettleStatus
 
 _DATA_BEGIN_BYTE = 0x55
 _DATA_END_BYTE = 0xaa
 
 
-class AbstractCommand:
+class RedmondCommand:
     CODE = NotImplemented
     resp_cls = NotImplemented
 
@@ -31,24 +32,24 @@ class AbstractCommand:
         return self.resp_cls.from_bytes(resp)
 
 
-class CmdFw(AbstractCommand):
+class CmdFw(RedmondCommand):
     CODE = 1
 
     def parse_resp(self, resp):
         return resp
 
 
-class Cmd3On(AbstractCommand):
+class Cmd3On(RedmondCommand):
     CODE = 3
     resp_cls = SuccessResponse
 
 
-class CmdO4ff(AbstractCommand):
+class Cmd4Off(RedmondCommand):
     CODE = 4
     resp_cls = SuccessResponse
 
 
-class Cmd5SetMode(AbstractCommand):
+class Cmd5SetMode(RedmondCommand):
     CODE = 5
     resp_cls = SuccessResponse
 
@@ -63,14 +64,14 @@ class Cmd5SetMode(AbstractCommand):
         return self.status.to_arr()
 
 
-class Cmd6Status(AbstractCommand):
+class Cmd6Status(RedmondCommand):
     CODE = 6
 
     def parse_resp(self, resp):
         return KettleStatus.from_bytes(resp)
 
 
-class Cmd62SwitchSound(AbstractCommand):
+class Cmd62SwitchSound(RedmondCommand):
     CODE = 60
     resp_cls = SuccessResponse
 
@@ -81,7 +82,7 @@ class Cmd62SwitchSound(AbstractCommand):
         return [int(self.state)]
 
 
-class Cmd62SwitchLock(AbstractCommand):
+class Cmd62SwitchLock(RedmondCommand):
     CODE = 62
     resp_cls = SuccessResponse
 
@@ -92,7 +93,7 @@ class Cmd62SwitchLock(AbstractCommand):
         return [int(self.state)]
 
 
-class CmdSync(AbstractCommand):
+class CmdSync(RedmondCommand):
     CODE = 110
     resp_cls = ErrorResponse
 
@@ -106,7 +107,7 @@ class CmdSync(AbstractCommand):
         return [self.now, self.tmz]
 
 
-class CmdAuth(AbstractCommand):
+class CmdAuth(RedmondCommand):
     CODE = 255
     resp_cls = SuccessResponse
 

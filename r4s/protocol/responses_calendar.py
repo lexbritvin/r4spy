@@ -1,8 +1,8 @@
 from r4s.protocol import int_from_bytes, int_to_arr
-from r4s.protocol.responses import AbstractResponse
+from r4s.protocol.responses import RedmondResponse
 
 
-class EventInCalendarResponse(AbstractResponse):
+class EventInCalendarResponse(RedmondResponse):
 
     def __init__(self, timezone, uid, recurrence_type, repeat_rule, repeat_type, action_type, timestamp):
         self.timezone = timezone
@@ -37,7 +37,7 @@ class EventInCalendarResponse(AbstractResponse):
         return data
 
 
-class AddEventResponse(AbstractResponse):
+class AddEventResponse(RedmondResponse):
     def __init__(self, uid, err):
         self.uid = uid
         self.err = err
@@ -53,7 +53,7 @@ class AddEventResponse(AbstractResponse):
         return [self.uid, self.err]
 
 
-class CalendarInfoResponse(AbstractResponse):
+class CalendarInfoResponse(RedmondResponse):
     def __init__(self, version, max_task_count, curr_task_count):
         self.version = version
         self.max_task_count = max_task_count

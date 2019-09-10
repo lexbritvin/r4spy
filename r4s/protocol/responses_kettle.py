@@ -1,5 +1,5 @@
 from r4s.protocol import int_from_bytes, int_to_arr
-from r4s.protocol.responses import AbstractResponse
+from r4s.protocol.responses import RedmondResponse
 
 LIGHT_TYPE_BOIL = 0x00
 LIGHT_TYPE_BACKLIGHT = 0x01
@@ -23,12 +23,12 @@ class KettleStatus:
 
     def __init__(self, mode=MODE_BOIL, trg_temp=BOIL_TEMP, curr_temp=0, state=STATE_OFF, boil_time=0):
         if mode not in [MODE_BOIL, MODE_HEAT, MODE_LIGHT]:
-            ValueError("Incorrect mode %s.".format(mode))
+            ValueError("Incorrect mode {}.".format(mode))
         if not self.is_allowed_temp(mode, trg_temp):
-            ValueError("Incorrect target temp %s for mode %s. Allowed range [%s:%s]"
+            ValueError("Incorrect target temp {}} for mode {}}. Allowed range [{}:{}]"
                        .format(trg_temp, mode, MIN_TEMP, MAX_TEMP))
         if abs(boil_time) > BOIL_TIME_MAX:
-            ValueError("Incorrect boil time %s specified. Allowed range [%s:%s]"
+            ValueError("Incorrect boil time {} specified. Allowed range [{}:{}]"
                        .format(boil_time, -BOIL_TIME_MAX, BOIL_TIME_MAX))
         self.mode = mode
         self.trg_temp = trg_temp
@@ -91,7 +91,7 @@ class KettleStatistics:
         return self.watts == other.watts and self.on_times == other.on_times
 
 
-class ColorSchemeResponse(AbstractResponse):
+class ColorSchemeResponse(RedmondResponse):
 
     def __init__(self, scheme_id, color1, color2, color3):
         if len(color1) != 5 or len(color2) != 5 or len(color3) != 5:
@@ -127,7 +127,7 @@ class ColorSchemeResponse(AbstractResponse):
         return data
 
 
-class PaletteConfigResponse(AbstractResponse):
+class PaletteConfigResponse(RedmondResponse):
 
     def __init__(self, light_type, state, palette_num, err):
         self.light_type = light_type  # Boil 0 or night light 1.
@@ -148,7 +148,7 @@ class PaletteConfigResponse(AbstractResponse):
         return [self.light_type, 0, self.state, self.palette_num, self.err]
 
 
-class FreshWaterSettingsResponse(AbstractResponse):
+class FreshWaterSettingsResponse(RedmondResponse):
 
     def __init__(self, err):
         self.err = err
@@ -163,7 +163,7 @@ class FreshWaterSettingsResponse(AbstractResponse):
         return [0, self.err]
 
 
-class FreshWaterResponse(AbstractResponse):
+class FreshWaterResponse(RedmondResponse):
 
     def __init__(self, state, hours, hours_last_update):
         self.state = state
@@ -185,7 +185,7 @@ class FreshWaterResponse(AbstractResponse):
         return data
 
 
-class NightLightWorkTimeResponse(AbstractResponse):
+class NightLightWorkTimeResponse(RedmondResponse):
 
     def __init__(self, time):
         self.time = time

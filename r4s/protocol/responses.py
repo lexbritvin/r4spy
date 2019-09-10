@@ -3,7 +3,7 @@ RESPONSE_FAIL = 0x00
 RESPONSE_NEUTRAL = 0x00
 
 
-class AbstractResponse:
+class RedmondResponse:
 
     @classmethod
     def from_bytes(cls, data):
@@ -15,7 +15,7 @@ class AbstractResponse:
 
 
 
-class SuccessResponse(AbstractResponse):
+class SuccessResponse(RedmondResponse):
 
     def __init__(self, ok):
         self.ok = ok
@@ -28,7 +28,7 @@ class SuccessResponse(AbstractResponse):
         return [0x01 if self.ok else 0x00]
 
 
-class ErrorResponse(AbstractResponse):
+class ErrorResponse(RedmondResponse):
 
     def __init__(self, err):
         self.err = err

@@ -1,9 +1,9 @@
-from r4s.protocol.commands import AbstractCommand
+from r4s.protocol.commands import RedmondCommand
 from r4s.protocol.responses import ErrorResponse
 from r4s.protocol.responses_calendar import EventInCalendarResponse, CalendarInfoResponse, AddEventResponse
 
 
-class Cmd112(AbstractCommand):
+class Cmd112(RedmondCommand):
     CODE = 112
     resp_cls = EventInCalendarResponse
 
@@ -14,7 +14,7 @@ class Cmd112(AbstractCommand):
         return [self.uid]
 
 
-class Cmd113(AbstractCommand):
+class Cmd113(RedmondCommand):
     CODE = 113
     resp_cls = AddEventResponse
 
@@ -25,12 +25,12 @@ class Cmd113(AbstractCommand):
         return self.event.to_arr()
 
 
-class Cmd115(AbstractCommand):
+class Cmd115(RedmondCommand):
     CODE = 115
     resp_cls = CalendarInfoResponse
 
 
-class Cmd116DeleteEvent(AbstractCommand):
+class Cmd116DeleteEvent(RedmondCommand):
     CODE = 116
     resp_cls = ErrorResponse
 

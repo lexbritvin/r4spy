@@ -1,16 +1,16 @@
 from r4s.protocol import int_to_arr
-from r4s.protocol.commands import AbstractCommand
+from r4s.protocol.commands import RedmondCommand
 from r4s.protocol.responses_kettle import ColorSchemeResponse, PaletteConfigResponse, FreshWaterSettingsResponse, \
     FreshWaterResponse, NightLightWorkTimeResponse
 from r4s.protocol.responses import ErrorResponse, SuccessResponse
 
 
-class Cmd48Kettle200(AbstractCommand):
+class Cmd48Kettle200(RedmondCommand):
     CODE = 48
     resp_cls = NightLightWorkTimeResponse
 
 
-class Cmd50SetLights(AbstractCommand):
+class Cmd50SetLights(RedmondCommand):
     CODE = 50
     resp_cls = ErrorResponse
 
@@ -38,7 +38,7 @@ class Cmd50SetLights(AbstractCommand):
         return data
 
 
-class Cmd51GetLights(AbstractCommand):
+class Cmd51GetLights(RedmondCommand):
     CODE = 51
     resp_cls = ColorSchemeResponse
 
@@ -49,7 +49,7 @@ class Cmd51GetLights(AbstractCommand):
         return [self.type]
 
 
-class Cmd52(AbstractCommand):
+class Cmd52(RedmondCommand):
     CODE = 52
     resp_cls = ErrorResponse
 
@@ -60,7 +60,7 @@ class Cmd52(AbstractCommand):
         return int_to_arr(self.secs, 2)
 
 
-class Cmd53(AbstractCommand):
+class Cmd53(RedmondCommand):
     CODE = 53
     resp_cls = PaletteConfigResponse
 
@@ -73,12 +73,12 @@ class Cmd53(AbstractCommand):
         return resp
 
 
-class CmdU54(AbstractCommand):
+class CmdU54(RedmondCommand):
     CODE = 54
     resp_cls = SuccessResponse
 
 
-class Cmd55UseBacklight(AbstractCommand):
+class Cmd55UseBacklight(RedmondCommand):
     CODE = 55
     resp_cls = ErrorResponse
 
@@ -90,7 +90,7 @@ class Cmd55UseBacklight(AbstractCommand):
         return [200, 200, self.state]
 
 
-class Cmd56(AbstractCommand):
+class Cmd56(RedmondCommand):
     CODE = 56
     resp_cls = ErrorResponse
 
@@ -99,7 +99,7 @@ class Cmd56(AbstractCommand):
         return NotImplemented
 
 
-class Cmd57(AbstractCommand):
+class Cmd57(RedmondCommand):
     CODE = 57
     resp_cls = ErrorResponse
 
@@ -108,7 +108,7 @@ class Cmd57(AbstractCommand):
         return NotImplemented
 
 
-class Cmd81(AbstractCommand):
+class Cmd81(RedmondCommand):
     CODE = 81
     resp_cls = FreshWaterSettingsResponse
 
@@ -123,7 +123,7 @@ class Cmd81(AbstractCommand):
         return data
 
 
-class Cmd82(AbstractCommand):
+class Cmd82(RedmondCommand):
     CODE = 82
     resp_cls = FreshWaterResponse
 

@@ -1,8 +1,7 @@
 """Tests for the BluetoothInterface class."""
 import unittest
 
-from r4s.protocol.commands import *
-from r4s.kettle.kettle import RedmondKettle
+from r4s.device.kettle import RedmondKettle
 from r4s.test.helper import MockKettleBackend
 
 
