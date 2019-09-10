@@ -1,6 +1,10 @@
-from r4s.protocol.commands import RedmondCommand
+import time
+
+from r4s.protocol.commands import RedmondCommand, CmdAuth, CmdFw
 from btlewrap.base import BluetoothInterface, BluetoothBackendException
 import logging
+
+from r4s.protocol.responses import RedmondResponse, SuccessResponse, VersionResponse
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel('DEBUG')
@@ -17,16 +21,26 @@ _GATT_ENABLE_NOTIFICATION = [0x01, 0x00]
 
 class RedmondDevice:
 
-    def __init__(self, mac, backend, cache_timeout=600, retries=3, adapter='hci0'):
+    def __init__(self, mac, backend, cache_timeout=600, retries=3, auth_timeout=5, adapter='hci0'):
         # Bluetooth config.
         self._mac = mac
         self._bt_interface = BluetoothInterface(backend, adapter, address_type='random')
         self._conn = None
         self._backend = None
 
+        # TODO: Make it random on first run.
+        self._is_auth = False
+        self._firmware_version = None
+        self._key = [0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb, 0xbb]
+        self.retries = retries
+        self.auth_timeout = auth_timeout
         self._iter = 0  # int counter
         self._curr_cmd = None
         self._data = None
+        self._cmd_handlers = {
+            CmdAuth.CODE: self.handler_cmd_auth,
+            CmdFw.CODE: self.handler_cmd_fw,
+        }
 
     def __enter__(self):
         return self.connect()
@@ -34,15 +48,41 @@ class RedmondDevice:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
 
+    def __del__(self):
+        self.disconnect()
+
     def connect(self):
         self._conn = self._bt_interface.connect(self._mac)
         self._backend = self._conn.__enter__()
+        if not self._try_auth():
+            self.disconnect()
+            raise BluetoothBackendException('could not authenticate')
         # TODO: Do internal staff like characteristics read and auth.
+        # TODO: Check connection is not reset.
         return self._backend
 
     def disconnect(self):
-        self._conn.__exit__()
+        self._conn.__del__()
         self._backend = None
+        self._is_auth = False
+
+    def _try_auth(self):
+        i = 0
+        cmd_auth = CmdAuth(self._key)
+        self._is_auth = False
+        while i < self.retries:
+            try:
+                self._send_subscribe()
+                self.do_command(cmd_auth)
+                if self._is_auth:
+                    return True
+            except BluetoothBackendException:
+                # Try again.
+                _LOGGER.debug('Auth failed. Attempt no: %s. Trying again.', i + 1)
+            time.sleep(self.auth_timeout)
+            i += 1
+
+        return False
 
     def _send_subscribe(self):
         # for the newer models a magic number must be written before we can read the current data
@@ -52,11 +92,12 @@ class RedmondDevice:
 
     def do_command(self, cmd):
         resp = self._send_cmd(cmd)
-        self._process_resp(cmd, resp)
+        parsed = cmd.parse_resp(resp)
+        if cmd.CODE in self._cmd_handlers:
+            self._cmd_handlers[cmd.CODE](parsed)
+        return parsed
 
     def do_commands(self, cmds):
-        # TODO: Maybe send subscribe every time.
-        # TODO: Check connection is not reset.
         for cmd in cmds:
             self.do_command(cmd)
 
@@ -77,9 +118,6 @@ class RedmondDevice:
 
         return self._data
 
-    def _process_resp(self, cmd, resp):
-        return NotImplemented
-
     def handleNotification(self, handle, raw_data):  # pylint: disable=unused-argument,invalid-name
         """ gets called by the bluepy backend when using wait_for_notification
         """
@@ -96,7 +134,12 @@ class RedmondDevice:
         # Save data to process in parent callback.
         self._data = data
 
-    ### additional methods
+    def handler_cmd_auth(self, resp: SuccessResponse):
+        self._is_auth = resp.ok
+
+    def handler_cmd_fw(self, resp: VersionResponse):
+        self._firmware_version = resp.version
+
     def _inc_counter(self):
         self._iter += 1
         if self._iter > 255:

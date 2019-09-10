@@ -19,76 +19,227 @@ MIN_TEMP = 35  # the official App.
 ERROR_TEMP_HEAT = 20  # Small number to prevent heating.
 
 
-class KettleStatus:
-
-    def __init__(self, mode=MODE_BOIL, trg_temp=BOIL_TEMP, curr_temp=0, state=STATE_OFF, boil_time=0):
-        if mode not in [MODE_BOIL, MODE_HEAT, MODE_LIGHT]:
-            ValueError("Incorrect mode {}.".format(mode))
-        if not self.is_allowed_temp(mode, trg_temp):
-            ValueError("Incorrect target temp {}} for mode {}}. Allowed range [{}:{}]"
-                       .format(trg_temp, mode, MIN_TEMP, MAX_TEMP))
-        if abs(boil_time) > BOIL_TIME_MAX:
-            ValueError("Incorrect boil time {} specified. Allowed range [{}:{}]"
-                       .format(boil_time, -BOIL_TIME_MAX, BOIL_TIME_MAX))
-        self.mode = mode
-        self.trg_temp = trg_temp
-        self.curr_temp = curr_temp
-        self.state = state
-        self.boil_time = boil_time
-
-    def __eq__(self, other):
-        if not isinstance(other, KettleStatus):
-            # don't attempt to compare against unrelated types
-            return NotImplemented
-
-        return self.mode == other.mode \
-               and self.trg_temp == other.trg_temp \
-               and self.curr_temp == other.curr_temp \
-               and self.state == other.state \
-               and self.boil_time == other.boil_time
+class KettleResponse(RedmondResponse):
 
     @staticmethod
     def is_allowed_temp(mode, trg_temp):
         if mode in [MODE_BOIL, MODE_LIGHT] and trg_temp == BOIL_TEMP:
             return True
-        if MIN_TEMP <= trg_temp or trg_temp <= MAX_TEMP:
+        if trg_temp < MIN_TEMP or trg_temp > MAX_TEMP:
             return False
-        return False
+        return True
+
+
+class Kettle170Response(KettleResponse):
+
+    def __init__(self, program, trg_temp, curr_temp, remaining_time_h, remaining_time_min, state):
+        if not self.is_allowed_temp(MODE_BOIL, trg_temp):
+            raise ValueError("Incorrect target temp {} . Allowed range [{}:{}]"
+                             .format(trg_temp, MIN_TEMP, MAX_TEMP))
+        self.program = program
+        self.trg_temp = trg_temp
+        self.curr_temp = curr_temp
+        self.remaining_time_h = remaining_time_h
+        self.remaining_time_min = remaining_time_min
+        self.state = state
 
     @classmethod
     def from_bytes(cls, data):
-        mode = data[0]  # Boil/Heat/Light.
-        trg_temp = data[2]  # Target temp.
-        curr_temp = data[5]  # Current temp.
-        state = data[8]  # On/Off
-        boil_time = data[13] - BOIL_TIME_RELATIVE_DEFAULT
-        return cls(mode, trg_temp, curr_temp, state, boil_time)
+        return cls(
+            program=data[0],
+            trg_temp=data[1],
+            curr_temp=data[2],
+            remaining_time_h=data[5],
+            remaining_time_min=data[6],
+            state=data[8],
+        )
 
     def to_arr(self):
-        data = [0x00] * 16
-        data[0] = self.mode
-        data[2] = self.trg_temp
-        data[5] = self.curr_temp
+        data = [0x00] * 8
+        data[0] = self.program
+        data[1] = self.trg_temp
+        data[2] = self.curr_temp
+        data[5] = self.remaining_time_h
+        data[6] = self.remaining_time_min
         data[8] = self.state
-        data[13] = BOIL_TIME_RELATIVE_DEFAULT + self.boil_time
         return data
 
 
-class KettleStatistics:
+class Kettle171Response(KettleResponse):
+    def __init__(self, program, trg_temp, curr_temp, remaining_time_h, remaining_time_min, heating, state, err):
+        if not self.is_allowed_temp(MODE_BOIL, trg_temp):
+            raise ValueError("Incorrect target temp {} . Allowed range [{}:{}]"
+                             .format(trg_temp, MIN_TEMP, MAX_TEMP))
+        self.program = program
+        self.trg_temp = trg_temp
+        self.curr_temp = curr_temp
+        self.remaining_time_h = remaining_time_h
+        self.remaining_time_min = remaining_time_min
+        self.state = state  # If water was boiled. 0 or 2.
+        self.heating = heating
+        self.err = err
 
-    def __init__(self):
-        self.ten_number = None
-        self.watts = None
-        self.on_times = None
-        self.work_time = None
-        self.relay_turn_on_amount = None
+    @classmethod
+    def from_bytes(cls, data):
+        return cls(
+            program=data[0],
+            trg_temp=data[2],
+            curr_temp=data[10],
+            remaining_time_h=data[5],
+            remaining_time_min=data[6],
+            state=data[8],
+            heating=data[7],
+            err=data[9],
+        )
 
-    def __eq__(self, other):
-        if not isinstance(other, KettleStatistics):
-            # don't attempt to compare against unrelated types
-            return NotImplemented
+    def to_arr(self):
+        data = [0x00] * 16
+        data[0] = self.program
+        data[2] = self.trg_temp
+        data[10] = self.curr_temp
+        data[5] = self.remaining_time_h
+        data[6] = self.remaining_time_min
+        data[8] = self.state
+        data[7] = self.heating
+        data[9] = self.err
+        return data
 
-        return self.watts == other.watts and self.on_times == other.on_times
+
+class Kettle173Response(KettleResponse):
+    def __init__(self, program, trg_temp, curr_temp, remaining_time_h, remaining_time_min, heating, state, err, block):
+        if not self.is_allowed_temp(MODE_BOIL, trg_temp):
+            raise ValueError("Incorrect target temp {} . Allowed range [{}:{}]"
+                             .format(trg_temp, MIN_TEMP, MAX_TEMP))
+        self.program = program
+        self.trg_temp = trg_temp
+        self.curr_temp = curr_temp
+        self.remaining_time_h = remaining_time_h
+        self.remaining_time_min = remaining_time_min
+        self.state = state  # If water was boiled. 0 or 2.
+        self.heating = heating
+        self.err = err
+        self.block = block
+
+    @classmethod
+    def from_bytes(cls, data):
+        return cls(
+            program=data[0],
+            trg_temp=data[2],
+            curr_temp=data[10],
+            remaining_time_h=data[5],
+            remaining_time_min=data[6],
+            state=data[8],
+            heating=data[7],
+            err=data[9],
+            block=data[11],
+        )
+
+    def to_arr(self):
+        data = [0x00] * 16
+        data[0] = self.program
+        data[2] = self.trg_temp
+        data[10] = self.curr_temp
+        data[5] = self.remaining_time_h
+        data[6] = self.remaining_time_min
+        data[8] = self.state
+        data[7] = self.heating
+        data[9] = self.err
+        data[11] = self.block
+        return data
+
+
+class Kettle200AResponse(KettleResponse):
+
+    def __init__(self, program, trg_temp, is_sound, curr_temp, color_change_period, state, boil_time, err):
+        if program not in [MODE_BOIL, MODE_HEAT, MODE_LIGHT]:
+            raise ValueError("Incorrect mode {}.".format(program))
+        if not self.is_allowed_temp(program, trg_temp):
+            raise ValueError("Incorrect target temp {} for mode {}. Allowed range [{}:{}]"
+                             .format(trg_temp, program, MIN_TEMP, MAX_TEMP))
+        if abs(boil_time) > BOIL_TIME_MAX:
+            raise ValueError("Incorrect boil time {} specified. Allowed range [{}:{}]"
+                             .format(boil_time, -BOIL_TIME_MAX, BOIL_TIME_MAX))
+        self.program = program
+        self.trg_temp = trg_temp
+        self.is_sound = is_sound
+        self.curr_temp = curr_temp
+        self.color_change_period = color_change_period
+        self.state = state
+        self.boil_time = boil_time
+        self.err = err
+
+    @classmethod
+    def from_bytes(cls, data):
+        return cls(
+            program=data[0],
+            trg_temp=data[2],  # TODO: Check code.
+            is_sound=data[4],
+            curr_temp=data[5],  # TODO: Check code.
+            color_change_period=data[6],  # TODO: Check code.
+            state=data[8],
+            boil_time=data[13] - BOIL_TIME_RELATIVE_DEFAULT,
+            err=data[15],
+        )
+
+    def to_arr(self):
+        data = [0x00] * 16
+        data[0] = self.program
+        data[2] = self.trg_temp
+        data[4] = self.is_sound
+        data[5] = self.curr_temp
+        data[6] = self.color_change_period
+        data[8] = self.state
+        data[13] = BOIL_TIME_RELATIVE_DEFAULT + self.boil_time
+        data[15] = self.err
+        return data
+
+
+class Kettle200Response(KettleResponse):
+    def __init__(self, program, trg_temp, is_blocked, is_sound, curr_temp, color_change_period, state, boil_time, err):
+        if program not in [MODE_BOIL, MODE_HEAT, MODE_LIGHT]:
+            raise ValueError("Incorrect mode {}.".format(program))
+        if not self.is_allowed_temp(program, trg_temp):
+            raise ValueError("Incorrect target temp {} for mode {}. Allowed range [{}:{}]"
+                             .format(trg_temp, program, MIN_TEMP, MAX_TEMP))
+        if abs(boil_time) > BOIL_TIME_MAX:
+            raise ValueError("Incorrect boil time {} specified. Allowed range [{}:{}]"
+                             .format(boil_time, -BOIL_TIME_MAX, BOIL_TIME_MAX))
+        self.program = program
+        self.trg_temp = trg_temp
+        self.is_blocked = is_blocked
+        self.is_sound = is_sound
+        self.curr_temp = curr_temp
+        self.color_change_period = color_change_period
+        self.state = state
+        self.boil_time = boil_time
+        self.err = err
+
+    @classmethod
+    def from_bytes(cls, data):
+        return cls(
+            program=data[0],
+            trg_temp=data[2],  # TODO: Check code.
+            is_blocked=data[3],
+            is_sound=data[4],
+            curr_temp=data[5],  # TODO: Check code.
+            color_change_period=data[6],  # TODO: Check code.
+            state=data[8],
+            boil_time=data[13] - BOIL_TIME_RELATIVE_DEFAULT,
+            err=data[15],
+        )
+
+    def to_arr(self):
+        data = [0x00] * 16
+        data[0] = self.program
+        data[2] = self.trg_temp
+        data[3] = self.is_blocked
+        data[4] = self.is_sound
+        data[5] = self.curr_temp
+        data[6] = self.color_change_period
+        data[8] = self.state
+        data[13] = BOIL_TIME_RELATIVE_DEFAULT + self.boil_time
+        data[15] = self.err
+        return data
 
 
 class ColorSchemeResponse(RedmondResponse):

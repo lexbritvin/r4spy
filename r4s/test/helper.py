@@ -1,10 +1,13 @@
 """Helpers for test cases."""
+from typing import List, Tuple
+
 from btlewrap.base import AbstractBackend
 
 from r4s.device.device import _HANDLE_R_CMD, _HANDLE_W_SUBSCRIBE, _HANDLE_W_CMD
 from r4s.protocol.commands import *
 from r4s.protocol.commands_kettle import *
 from r4s.protocol.commands_stats import *
+from r4s.protocol.responses import VersionResponse
 from r4s.protocol.responses_kettle import MODE_BOIL, STATE_OFF, STATE_ON
 
 
@@ -56,7 +59,7 @@ class MockKettleBackend(AbstractBackend):
         self.counter = 0
         # Internal status.
         # Firmware version.
-        self.fw_version = [3, 10]
+        self.fw_version = VersionResponse([3, 10])
         # Statistics data.
         self.statistics = TenInformationResponse(
             ten_num=0,
@@ -67,7 +70,7 @@ class MockKettleBackend(AbstractBackend):
         )
 
         # Current status.
-        self.status = KettleStatus(
+        self.status = KettleResponse(
             mode=MODE_BOIL,
             curr_temp=40,
             trg_temp=0,
@@ -76,12 +79,21 @@ class MockKettleBackend(AbstractBackend):
         )
 
     def connect(self, mac):
+        if self.is_connected:
+            ValueError('cannot have more than 1 connection')
         self.is_connected = True
 
     def disconnect(self):
+        if not self.is_connected:
+            ValueError('cannot disconnect when not connected')
         self.is_connected = False
         self.is_subscribed = False
         self.is_authed = None
+
+    @staticmethod
+    def scan_for_devices(timeout) -> List[Tuple[str, str]]:
+        # TODO: Maybe try finding devices.
+        pass
 
     def check_backend(self):
         """This backend is available when the field is set accordingly."""
@@ -163,7 +175,7 @@ class MockKettleBackend(AbstractBackend):
         return SuccessResponse(True).to_arr()
 
     def cmd_fw(self, data):
-        return self.fw_version
+        return self.fw_version.to_arr()
 
     def cmd_backlight(self, data):
         # TODO: Handle somehow.
@@ -186,7 +198,7 @@ class MockKettleBackend(AbstractBackend):
 
     def cmd_set_mode(self, data):
         try:
-            new_status = KettleStatus.from_bytes(data)
+            new_status = KettleResponse.from_bytes(data)
         except ValueError:
             return SuccessResponse(False).to_arr()
 

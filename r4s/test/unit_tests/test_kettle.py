@@ -1,7 +1,10 @@
 """Tests for the BluetoothInterface class."""
 import unittest
 
-from r4s.device.kettle import RedmondKettle
+from btlewrap import BluetoothBackendException
+
+from r4s.device.kettle.kettle import RedmondKettle
+from r4s.protocol.responses_kettle import MODE_BOIL, BOIL_TEMP, STATE_ON, STATE_OFF, MODE_HEAT, MAX_TEMP
 from r4s.test.helper import MockKettleBackend
 
 
@@ -12,51 +15,66 @@ class TestBluetoothInterface(unittest.TestCase):
         """Test the usage of the with statement."""
 
         kettle, backend = self.get_kettle()
-        # Check we know nothing about backend.
+
+        try:
+            # Try get info without connection.
+            kettle.first_connect()
+        except BluetoothBackendException:
+            pass
         self.assertIsNone(kettle._firmware_version)
         self.assertIsNone(kettle.status)
-        self.assertIsNone(kettle.statistics)
+        self.assertIsNone(kettle.stats_ten)
 
         # When key is not authed and not ready to pair.
         backend.ready_to_pair = False
-        kettle.first_connect()
-        self.assertFalse(kettle._is_auth)
+        try:
+            with kettle:
+                kettle.first_connect()
+                self.assertFalse(kettle._is_auth)
+                # Check that connection is done properly.
+                self.assertIsNotNone(kettle._backend)
+        except BluetoothBackendException:
+            pass
+        self.assertIsNone(kettle._backend)
         self.assertFalse(backend.check_key(kettle._key))
 
         # When ready to pair and key is not authed.
         backend.ready_to_pair = True
-        kettle.first_connect()
-        self.assertTrue(kettle._is_auth)
+        with kettle:
+            kettle.first_connect()
+            self.assertTrue(kettle._is_auth)
         self.assertTrue(backend.check_key(kettle._key))
         # Check data.
-        self.assertListEqual(kettle._firmware_version, backend.fw_version)
+        self.assertListEqual(kettle._firmware_version, backend.fw_version.version)
         self.assertIsNotNone(kettle.status)
-        self.assertIsNotNone(kettle.statistics)
-        self.assertEqual(kettle.statistics, backend.statistics)
+        self.assertIsNotNone(kettle.stats_ten)
+        self.assertEqual(kettle.stats_ten, backend.statistics)
         self.assertEqual(kettle.status, backend.status)
 
         # When not ready to pair and key changed and unauthed.
         backend.ready_to_pair = False
         old_key = kettle._key
         kettle._key = [0xaa] * 8
-        kettle.first_connect()
-        self.assertFalse(kettle._is_auth)
+        try:
+            with kettle:
+                kettle.first_connect()
+                self.assertFalse(kettle._is_auth)
+        except BluetoothBackendException:
+            pass
         self.assertFalse(backend.check_key(kettle._key))
-        # Check cache cleared.
-        self.assertIsNone(kettle._firmware_version)
-        self.assertIsNone(kettle.status)
-        self.assertIsNone(kettle.statistics)
 
         # When not ready to pair and key is authed.
         kettle._key = old_key
-        kettle.first_connect()
-        self.assertTrue(kettle._is_auth)
+        with kettle:
+            kettle.first_connect()
+            self.assertTrue(kettle._is_auth)
         self.assertTrue(backend.check_key(kettle._key))
 
         # When key is not valid.
         kettle._key = [0xaa] * 2
         try:
-            kettle.first_connect()
+            with kettle:
+                kettle.first_connect()
         except ValueError:
             self.assertFalse(kettle._is_auth)
 
@@ -69,29 +87,35 @@ class TestBluetoothInterface(unittest.TestCase):
         # Register kettle.
         kettle, backend = self.get_kettle()
         backend.ready_to_pair = True
-        kettle.first_connect()
+        with kettle:
+            kettle.first_connect()
 
         # Set kettle to boil.
-        kettle.set_mode(True, MODE_BOIL)
+        with kettle:
+            kettle.set_mode(True, MODE_BOIL)
         self.assertEqual(kettle.status, backend.status)
         self.assertEqual(backend.status.trg_temp, BOIL_TEMP)
-        self.assertEqual(kettle.status.on, STATE_ON)
+        self.assertEqual(kettle.status.state, STATE_ON)
 
         # Test disable.
-        kettle.set_mode(False)
+        with kettle:
+            kettle.set_mode(False)
         self.assertEqual(kettle.status, backend.status)
-        self.assertEqual(kettle.status.on, STATE_OFF)
+        self.assertEqual(kettle.status.state, STATE_OFF)
 
         # Test incorrect temp.
         old_temp = backend.status.trg_temp
         try:
-            kettle.set_mode(True, MODE_HEAT, MAX_TEMP + 1)
+            with kettle:
+                kettle.set_mode(True, MODE_HEAT, MAX_TEMP + 1)
         except ValueError:
-            self.assertEqual(kettle.status, backend.status)
-            self.assertEqual(backend.status.trg_temp, old_temp)
+            pass
+        self.assertEqual(kettle.status, backend.status)
+        self.assertEqual(backend.status.trg_temp, old_temp)
 
         # Test correct temp.
-        kettle.set_mode(True, MODE_HEAT, MAX_TEMP)
+        with kettle:
+            kettle.set_mode(True, MODE_HEAT, MAX_TEMP)
         self.assertEqual(kettle.status, backend.status)
         self.assertEqual(backend.status.trg_temp, MAX_TEMP)
         # TODO: Test status change when on.
@@ -100,12 +124,12 @@ class TestBluetoothInterface(unittest.TestCase):
 
     @staticmethod
     def get_kettle():
-        backend = MockKettleBackend
         kettle = RedmondKettle(
             'test_mac',
             cache_timeout=600,
             adapter='hci0',
-            backend=backend,
-            retries=1
+            backend=MockKettleBackend,
+            retries=1,
+            auth_timeout=1,
         )
         return kettle, kettle._bt_interface._backend

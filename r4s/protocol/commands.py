@@ -1,5 +1,6 @@
-from r4s.protocol.responses import SuccessResponse, ErrorResponse
-from r4s.protocol.responses_kettle import KettleStatus
+from r4s.protocol import int_to_arr
+from r4s.protocol.responses import SuccessResponse, ErrorResponse, VersionResponse
+from r4s.protocol.responses_kettle import KettleResponse
 
 _DATA_BEGIN_BYTE = 0x55
 _DATA_END_BYTE = 0xaa
@@ -11,10 +12,7 @@ class RedmondCommand:
 
     @classmethod
     def wrap(cls, counter, cmd, data):
-        result = [_DATA_BEGIN_BYTE, counter, cmd]
-        result.extend(data)
-        result.append(_DATA_END_BYTE)
-        return bytes(result)
+        return bytes([_DATA_BEGIN_BYTE, counter, cmd, *data, _DATA_END_BYTE])
 
     @staticmethod
     def unwrap(byte_arr):
@@ -26,7 +24,7 @@ class RedmondCommand:
         return self.wrap(counter, self.CODE, self.to_arr())
 
     def to_arr(self):
-        return self.resp_cls.from_bytes()
+        return []
 
     def parse_resp(self, resp):
         return self.resp_cls.from_bytes(resp)
@@ -34,9 +32,7 @@ class RedmondCommand:
 
 class CmdFw(RedmondCommand):
     CODE = 1
-
-    def parse_resp(self, resp):
-        return resp
+    resp_cls = VersionResponse
 
 
 class Cmd3On(RedmondCommand):
@@ -54,7 +50,7 @@ class Cmd5SetMode(RedmondCommand):
     resp_cls = SuccessResponse
 
     def __init__(self, mode, temp, boil_time):
-        self.status = KettleStatus(
+        self.status = KettleResponse(
             mode=mode,
             trg_temp=temp,
             boil_time=boil_time
@@ -68,7 +64,7 @@ class Cmd6Status(RedmondCommand):
     CODE = 6
 
     def parse_resp(self, resp):
-        return KettleStatus.from_bytes(resp)
+        return KettleResponse.from_bytes(resp)
 
 
 class Cmd62SwitchSound(RedmondCommand):
@@ -100,11 +96,11 @@ class CmdSync(RedmondCommand):
     def __init__(self, timezone=4):
         # TODO: Get real timezone.
         from datetime import datetime
-        self.now = (int(datetime.now().timestamp()), 4)
-        self.tmz = (timezone * 3600, 4)
+        self.now = int(datetime.now().timestamp())
+        self.tmz = timezone * 3600
 
     def to_arr(self):
-        return [self.now, self.tmz]
+        return [*int_to_arr(self.now, 4), *int_to_arr(self.tmz, 4)]
 
 
 class CmdAuth(RedmondCommand):
