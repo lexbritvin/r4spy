@@ -1,5 +1,7 @@
+from typing import List
+
 from r4s.protocol import int_to_arr, int_from_bytes
-from r4s.protocol.responses import RedmondResponse
+from r4s.protocol.redmond.responses import RedmondResponse
 
 
 class TenInformationResponse(RedmondResponse):
@@ -12,7 +14,7 @@ class TenInformationResponse(RedmondResponse):
         self.relay_turn_on_amount = relay_turn_on_amount
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             ten_num=data[0],
             err=data[1],
@@ -38,7 +40,7 @@ class TurningOnCountResponse(RedmondResponse):
         self.turning_on_amount = turning_on_amount
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             err=data[2],
             turning_on_amount=int_from_bytes(data[3:7]),

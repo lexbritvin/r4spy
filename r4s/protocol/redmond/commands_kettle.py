@@ -1,8 +1,8 @@
 from r4s.protocol import int_to_arr
-from r4s.protocol.commands import RedmondCommand
-from r4s.protocol.responses_kettle import ColorSchemeResponse, PaletteConfigResponse, FreshWaterSettingsResponse, \
+from r4s.protocol.redmond.commands import RedmondCommand
+from r4s.protocol.redmond.responses_kettle import ColorSchemeResponse, PaletteConfigResponse, FreshWaterSettingsResponse, \
     FreshWaterResponse, NightLightWorkTimeResponse
-from r4s.protocol.responses import ErrorResponse, SuccessResponse
+from r4s.protocol.redmond.responses import ErrorResponse, SuccessResponse
 
 
 class Cmd48Kettle200(RedmondCommand):

@@ -1,6 +1,6 @@
 from r4s.protocol import int_to_arr
-from r4s.protocol.responses import SuccessResponse, ErrorResponse, VersionResponse
-from r4s.protocol.responses_kettle import KettleResponse
+from r4s.protocol.redmond.responses import SuccessResponse, ErrorResponse, VersionResponse
+from r4s.protocol.redmond.responses_kettle import KettleResponse
 
 _DATA_BEGIN_BYTE = 0x55
 _DATA_END_BYTE = 0xaa

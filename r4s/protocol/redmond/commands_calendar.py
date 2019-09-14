@@ -1,6 +1,6 @@
-from r4s.protocol.commands import RedmondCommand
-from r4s.protocol.responses import ErrorResponse
-from r4s.protocol.responses_calendar import EventInCalendarResponse, CalendarInfoResponse, AddEventResponse
+from r4s.protocol.redmond.commands import RedmondCommand
+from r4s.protocol.redmond.responses import ErrorResponse
+from r4s.protocol.redmond.responses_calendar import EventInCalendarResponse, CalendarInfoResponse, AddEventResponse
 
 
 class Cmd112(RedmondCommand):

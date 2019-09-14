@@ -15,7 +15,7 @@ class RedmondResponse:
         return True
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return NotImplemented
 
     def to_arr(self):
@@ -24,11 +24,11 @@ class RedmondResponse:
 
 class SuccessResponse(RedmondResponse):
 
-    def __init__(self, ok):
-        self.ok = ok
+    def __init__(self, ok: bool):
+        self.ok: bool = ok
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(bool(data[0]))
 
     def to_arr(self):
@@ -37,24 +37,24 @@ class SuccessResponse(RedmondResponse):
 
 class ErrorResponse(RedmondResponse):
 
-    def __init__(self, err):
+    def __init__(self, err: int):
         self.err = err
 
     @classmethod
-    def from_bytes(cls, data):
-        return cls(bool(data[0]))
+    def from_bytes(cls, data: list):
+        return cls(data[0])
 
     def to_arr(self):
-        return [0x01 if self.err else 0x00]
+        return [self.err]
 
 
 class VersionResponse(RedmondResponse):
 
-    def __init__(self, version):
+    def __init__(self, version: list):
         self.version = version
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(data[0:2])
 
     def to_arr(self):

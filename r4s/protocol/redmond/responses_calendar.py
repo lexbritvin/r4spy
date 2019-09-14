@@ -1,5 +1,5 @@
 from r4s.protocol import int_from_bytes, int_to_arr
-from r4s.protocol.responses import RedmondResponse
+from r4s.protocol.redmond.responses import RedmondResponse
 
 
 class EventInCalendarResponse(RedmondResponse):
@@ -17,7 +17,7 @@ class EventInCalendarResponse(RedmondResponse):
         return self.recurrence_type & 1 == 1
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             timezone=int_from_bytes(data[0:4]),
             uid=data[4],
@@ -43,7 +43,7 @@ class AddEventResponse(RedmondResponse):
         self.err = err
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             uid=data[0],
             err=data[1],
@@ -60,7 +60,7 @@ class CalendarInfoResponse(RedmondResponse):
         self.curr_task_count = curr_task_count
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             version=data[0],
             max_task_count=data[1],

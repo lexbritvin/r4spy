@@ -1,10 +1,10 @@
 import time
 
-from r4s.protocol.commands import RedmondCommand, CmdAuth, CmdFw
+from r4s.protocol.redmond.commands import RedmondCommand, CmdAuth, CmdFw
 from btlewrap.base import BluetoothInterface, BluetoothBackendException
 import logging
 
-from r4s.protocol.responses import RedmondResponse, SuccessResponse, VersionResponse
+from r4s.protocol.redmond.responses import SuccessResponse, VersionResponse
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel('DEBUG')
@@ -12,8 +12,9 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 _LOGGER.addHandler(ch)
 
+## TODO: Use UUID.
 _HANDLE_R_CMD = 0x000b
-_HANDLE_W_SUBSCRIBE = 0x000c
+_HANDLE_W_SUBSCRIBE = 0x000c  # TODO: Name it CCCD.
 _HANDLE_W_CMD = 0x000e
 
 _GATT_ENABLE_NOTIFICATION = [0x01, 0x00]
@@ -25,6 +26,7 @@ class RedmondDevice:
         # Bluetooth config.
         self._mac = mac
         self._bt_interface = BluetoothInterface(backend, adapter, address_type='random')
+
         self._conn = None
         self._backend = None
 
@@ -54,6 +56,9 @@ class RedmondDevice:
     def connect(self):
         self._conn = self._bt_interface.connect(self._mac)
         self._backend = self._conn.__enter__()
+        # TODO: Read device name from 0x0003. BT uuid 0x2a00
+        # TODO: Read connection interval 0x0007. BT uuid 0x2a04
+        #  Connection interval min 18, max 38, timeout 50. x1.25ms
         if not self._try_auth():
             self.disconnect()
             raise BluetoothBackendException('could not authenticate')
@@ -62,7 +67,9 @@ class RedmondDevice:
         return self._backend
 
     def disconnect(self):
-        self._conn.__del__()
+        if self._conn is not None:
+            self._conn.__del__()
+        self._conn = None
         self._backend = None
         self._is_auth = False
 
@@ -108,6 +115,7 @@ class RedmondDevice:
         self._curr_cmd = cmd
 
         # Write and wait for response in self.handleNotification.
+        ## TODO: Define connection interval.
         self._backend._DATA_MODE_LISTEN = cmd.wrapped(self._iter)
         success = self._backend.wait_for_notification(_HANDLE_W_CMD, self, 3)
         if not success or self._data is None:

@@ -4,7 +4,7 @@ import unittest
 from btlewrap import BluetoothBackendException
 
 from r4s.device.kettle.kettle import RedmondKettle
-from r4s.protocol.responses_kettle import MODE_BOIL, BOIL_TEMP, STATE_ON, STATE_OFF, MODE_HEAT, MAX_TEMP
+from r4s.protocol import MODE_BOIL, BOIL_TEMP, STATE_ON, STATE_OFF, MODE_HEAT, MAX_TEMP
 from r4s.test.helper import MockKettleBackend
 
 

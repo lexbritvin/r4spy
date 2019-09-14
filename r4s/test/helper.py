@@ -4,11 +4,11 @@ from typing import List, Tuple
 from btlewrap.base import AbstractBackend
 
 from r4s.device.device import _HANDLE_R_CMD, _HANDLE_W_SUBSCRIBE, _HANDLE_W_CMD
-from r4s.protocol.commands import *
-from r4s.protocol.commands_kettle import *
-from r4s.protocol.commands_stats import *
-from r4s.protocol.responses import VersionResponse
-from r4s.protocol.responses_kettle import MODE_BOIL, STATE_OFF, STATE_ON
+from r4s.protocol.redmond.commands import *
+from r4s.protocol.redmond.commands_kettle import *
+from r4s.protocol.redmond.commands_stats import *
+from r4s.protocol.redmond.responses import VersionResponse
+from r4s.protocol import MODE_BOIL, STATE_OFF, STATE_ON
 
 
 class MockKettleBackend(AbstractBackend):
@@ -92,8 +92,10 @@ class MockKettleBackend(AbstractBackend):
 
     @staticmethod
     def scan_for_devices(timeout) -> List[Tuple[str, str]]:
-        # TODO: Maybe try finding devices.
-        pass
+        return [
+            ('r4s', 'RK-G200S'),
+            *[('mac_' + str(x), 'title_' + str(x)) for x in range(3)]
+        ]
 
     def check_backend(self):
         """This backend is available when the field is set accordingly."""
@@ -179,11 +181,11 @@ class MockKettleBackend(AbstractBackend):
 
     def cmd_backlight(self, data):
         # TODO: Handle somehow.
-        return ErrorResponse(False).to_arr()
+        return ErrorResponse(0).to_arr()
 
     def cmd_set_lights(self, data):
         # TODO: Handle somehow.
-        return ErrorResponse(False).to_arr()
+        return ErrorResponse(0).to_arr()
 
     def cmd_get_lights(self, data):
         # TODO: Return current set values.
@@ -191,7 +193,7 @@ class MockKettleBackend(AbstractBackend):
 
     def cmd_sync(self, data):
         # TODO: Save time.
-        return ErrorResponse(False).to_arr()
+        return ErrorResponse(0).to_arr()
 
     def cmd_status(self, data):
         return self.status.to_arr()

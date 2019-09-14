@@ -1,17 +1,14 @@
-import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from btlewrap.base import BluetoothBackendException
-
-from r4s.device.device import RedmondDevice, _LOGGER
+from r4s.device.device import RedmondDevice
 
 from threading import Lock
 
-from r4s.protocol.commands import CmdFw, Cmd5SetMode, Cmd3On, Cmd6Status, Cmd4Off, CmdSync, CmdAuth
-from r4s.protocol.commands_kettle import Cmd51GetLights
-from r4s.protocol.commands_stats import Cmd71StatsUsage, Cmd80StatsTimes
-from r4s.protocol.responses_kettle import MODE_BOIL, BOIL_TEMP, BOIL_TIME_MAX, LIGHT_TYPE_BOIL, KettleResponse
-from r4s.protocol.responses_stats import TenInformationResponse, TurningOnCountResponse
+from r4s.protocol.redmond.commands import CmdFw, Cmd5SetMode, Cmd3On, Cmd6Status, Cmd4Off, CmdSync
+from r4s.protocol.redmond.commands_kettle import Cmd51GetLights
+from r4s.protocol.redmond.commands_stats import Cmd71StatsUsage, Cmd80StatsTimes
+from r4s.protocol import MODE_BOIL, BOIL_TEMP, BOIL_TIME_MAX, LIGHT_TYPE_BOIL, KettleResponse
+from r4s.protocol import TenInformationResponse, TurningOnCountResponse
 
 
 class RedmondKettle(RedmondDevice):

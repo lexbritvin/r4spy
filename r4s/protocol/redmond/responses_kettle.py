@@ -1,5 +1,5 @@
 from r4s.protocol import int_from_bytes, int_to_arr
-from r4s.protocol.responses import RedmondResponse
+from r4s.protocol.redmond.responses import RedmondResponse
 
 LIGHT_TYPE_BOIL = 0x00
 LIGHT_TYPE_BACKLIGHT = 0x01
@@ -16,7 +16,6 @@ BOIL_TIME_MAX = 5  # The range according to the App [-5:5].
 BOIL_TEMP = 0x00
 MAX_TEMP = 90  # According to
 MIN_TEMP = 35  # the official App.
-ERROR_TEMP_HEAT = 20  # Small number to prevent heating.
 
 
 class KettleResponse(RedmondResponse):
@@ -25,9 +24,9 @@ class KettleResponse(RedmondResponse):
     def is_allowed_temp(mode, trg_temp):
         if mode in [MODE_BOIL, MODE_LIGHT] and trg_temp == BOIL_TEMP:
             return True
-        if trg_temp < MIN_TEMP or trg_temp > MAX_TEMP:
-            return False
-        return True
+        if MIN_TEMP <= trg_temp <= MAX_TEMP:
+            return True
+        return False
 
 
 class Kettle170Response(KettleResponse):
@@ -44,7 +43,7 @@ class Kettle170Response(KettleResponse):
         self.state = state
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             program=data[0],
             trg_temp=data[1],
@@ -80,7 +79,7 @@ class Kettle171Response(KettleResponse):
         self.err = err
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             program=data[0],
             trg_temp=data[2],
@@ -121,7 +120,7 @@ class Kettle173Response(KettleResponse):
         self.block = block
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             program=data[0],
             trg_temp=data[2],
@@ -169,7 +168,7 @@ class Kettle200AResponse(KettleResponse):
         self.err = err
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             program=data[0],
             trg_temp=data[2],  # TODO: Check code.
@@ -215,7 +214,7 @@ class Kettle200Response(KettleResponse):
         self.err = err
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             program=data[0],
             trg_temp=data[2],  # TODO: Check code.
@@ -259,7 +258,7 @@ class ColorSchemeResponse(RedmondResponse):
             })
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             scheme_id=data[0],
             color1=data[1:6],
@@ -287,7 +286,7 @@ class PaletteConfigResponse(RedmondResponse):
         self.err = err
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             light_type=data[0],
             state=data[2],
@@ -305,7 +304,7 @@ class FreshWaterSettingsResponse(RedmondResponse):
         self.err = err
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             err=data[1],
         )
@@ -322,7 +321,7 @@ class FreshWaterResponse(RedmondResponse):
         self.hours_last_update = hours_last_update
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             state=data[1],
             hours=int_from_bytes(data[2, 4]),
@@ -342,7 +341,7 @@ class NightLightWorkTimeResponse(RedmondResponse):
         self.time = time
 
     @classmethod
-    def from_bytes(cls, data):
+    def from_bytes(cls, data: list):
         return cls(
             time=data[0],
         )
