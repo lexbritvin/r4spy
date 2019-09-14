@@ -16,10 +16,10 @@ class RedmondResponse:
 
     @classmethod
     def from_bytes(cls, data: list):
-        return NotImplemented
+        raise NotImplemented
 
     def to_arr(self):
-        return NotImplemented
+        raise NotImplemented
 
 
 class SuccessResponse(RedmondResponse):

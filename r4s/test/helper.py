@@ -4,11 +4,12 @@ from typing import List, Tuple
 from btlewrap.base import AbstractBackend
 
 from r4s.device.device import _HANDLE_R_CMD, _HANDLE_W_SUBSCRIBE, _HANDLE_W_CMD
-from r4s.protocol.redmond.commands import *
-from r4s.protocol.redmond.commands_kettle import *
-from r4s.protocol.redmond.commands_stats import *
-from r4s.protocol.redmond.responses import VersionResponse
-from r4s.protocol import MODE_BOIL, STATE_OFF, STATE_ON
+from r4s.device.kettle.kettle import RedmondKettle200
+from r4s.protocol.redmond.command.common import *
+from r4s.protocol.redmond.command.statistics import *
+from r4s.protocol.redmond.command.lights import *
+from r4s.protocol.redmond.response.common import *
+from r4s.protocol.redmond.response.kettle import MODE_BOIL, STATE_OFF, STATE_ON
 
 
 class MockKettleBackend(AbstractBackend):
@@ -69,9 +70,11 @@ class MockKettleBackend(AbstractBackend):
             relay_turn_on_amount=0,
         )
 
+        # TODO: Change to test other.
+        self.device_cls = RedmondKettle200
         # Current status.
-        self.status = KettleResponse(
-            mode=MODE_BOIL,
+        self.status = self.device_cls.status_resp_cls(
+            program=MODE_BOIL,
             curr_temp=40,
             trg_temp=0,
             state=STATE_OFF,
@@ -200,7 +203,7 @@ class MockKettleBackend(AbstractBackend):
 
     def cmd_set_mode(self, data):
         try:
-            new_status = KettleResponse.from_bytes(data)
+            new_status = self.device_cls.status_resp_cls.from_bytes(data)
         except ValueError:
             return SuccessResponse(False).to_arr()
 

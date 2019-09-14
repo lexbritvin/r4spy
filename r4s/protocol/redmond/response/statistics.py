@@ -1,7 +1,5 @@
-from typing import List
-
 from r4s.protocol import int_to_arr, int_from_bytes
-from r4s.protocol.redmond.responses import RedmondResponse
+from r4s.protocol.redmond.response.common import RedmondResponse
 
 
 class TenInformationResponse(RedmondResponse):

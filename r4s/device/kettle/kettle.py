@@ -4,17 +4,20 @@ from r4s.device.device import RedmondDevice
 
 from threading import Lock
 
-from r4s.protocol.redmond.commands import CmdFw, Cmd5SetMode, Cmd3On, Cmd6Status, Cmd4Off, CmdSync
-from r4s.protocol.redmond.commands_kettle import Cmd51GetLights
-from r4s.protocol.redmond.commands_stats import Cmd71StatsUsage, Cmd80StatsTimes
-from r4s.protocol import MODE_BOIL, BOIL_TEMP, BOIL_TIME_MAX, LIGHT_TYPE_BOIL, KettleResponse
-from r4s.protocol import TenInformationResponse, TurningOnCountResponse
+from r4s.protocol.redmond.command.common import CmdFw, Cmd5SetMode, Cmd3On, Cmd6Status, Cmd4Off, CmdSync
+from r4s.protocol.redmond.command.lights import Cmd51GetLights
+from r4s.protocol.redmond.command.statistics import Cmd71StatsUsage, Cmd80StatsTimes
+from r4s.protocol.redmond.response.kettle import MODE_BOIL, BOIL_TEMP, BOIL_TIME_MAX, KettleResponse, Kettle200Response
+from r4s.protocol.redmond.response.lights import LIGHT_TYPE_BOIL
+from r4s.protocol.redmond.response.statistics import TenInformationResponse, TurningOnCountResponse
 
 
-class RedmondKettle(RedmondDevice):
+class RedmondKettle200(RedmondDevice):
     """"
     A class to read data from Mi Flora plant sensors.
     """
+
+    status_resp_cls = Kettle200Response
 
     def __init__(self, mac, backend, cache_timeout=600, retries=3, auth_timeout=5, adapter='hci0'):
         """
@@ -58,7 +61,7 @@ class RedmondKettle(RedmondDevice):
             Cmd80StatsTimes(),
             Cmd51GetLights(LIGHT_TYPE_BOIL),
             CmdSync(),
-            Cmd6Status()
+            Cmd6Status(self.status_resp_cls)
         ]
         self.do_commands(cmds)
         # TODO: Save cache.
@@ -71,19 +74,19 @@ class RedmondKettle(RedmondDevice):
                 CmdSync(),
                 Cmd5SetMode(mode, temp, boil_time),
                 Cmd3On(),
-                Cmd6Status(),
+                Cmd6Status(self.status_resp_cls),
             ]
         else:
             cmds = [
                 CmdSync(),
                 Cmd4Off(),
-                Cmd6Status(),
+                Cmd6Status(self.status_resp_cls),
             ]
 
         self.do_commands(cmds)
 
     def update_status(self):
-        self.do_commands([Cmd6Status()])
+        self.do_commands([Cmd6Status(self.status_resp_cls)])
         # TODO: Save cache.
 
     def handler_cmd_71_stats(self, resp: TenInformationResponse):

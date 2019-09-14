@@ -1,10 +1,10 @@
 import time
 
-from r4s.protocol.redmond.commands import RedmondCommand, CmdAuth, CmdFw
+from r4s.protocol.redmond.command.common import RedmondCommand, CmdAuth, CmdFw
 from btlewrap.base import BluetoothInterface, BluetoothBackendException
 import logging
 
-from r4s.protocol.redmond.responses import SuccessResponse, VersionResponse
+from r4s.protocol.redmond.response.common import SuccessResponse, VersionResponse
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel('DEBUG')
@@ -13,6 +13,14 @@ ch.setLevel(logging.DEBUG)
 _LOGGER.addHandler(ch)
 
 ## TODO: Use UUID.
+_UUID_SRV_R4S = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+_UUID_SRV_GENERIC = 0x1800
+_UUID_CHAR_GENERIC = 0x2a00
+_UUID_CHAR_CONN = 0x2a04
+_UUID_CCCD = "00002902-0000-1000-8000-00805f9b34fb"
+_UUID_CHAR_CMD = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+_UUID_CHAR_RSP = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+
 _HANDLE_R_CMD = 0x000b
 _HANDLE_W_SUBSCRIBE = 0x000c  # TODO: Name it CCCD.
 _HANDLE_W_CMD = 0x000e
@@ -21,11 +29,17 @@ _GATT_ENABLE_NOTIFICATION = [0x01, 0x00]
 
 
 class RedmondDevice:
+    status_resp_cls = NotImplemented
 
     def __init__(self, mac, backend, cache_timeout=600, retries=3, auth_timeout=5, adapter='hci0'):
         # Bluetooth config.
         self._mac = mac
         self._bt_interface = BluetoothInterface(backend, adapter, address_type='random')
+
+        # TODO: Replace hardcoded values.
+        self.cmd_handle = _HANDLE_W_CMD
+        self.ccc_handle = _HANDLE_W_SUBSCRIBE
+        self.device_name = "RK-G200S"
 
         self._conn = None
         self._backend = None
@@ -56,8 +70,9 @@ class RedmondDevice:
     def connect(self):
         self._conn = self._bt_interface.connect(self._mac)
         self._backend = self._conn.__enter__()
-        # TODO: Read device name from 0x0003. BT uuid 0x2a00
-        # TODO: Read connection interval 0x0007. BT uuid 0x2a04
+        # TODO: Finish
+        # self.discover_device()
+
         #  Connection interval min 18, max 38, timeout 50. x1.25ms
         if not self._try_auth():
             self.disconnect()
@@ -66,12 +81,47 @@ class RedmondDevice:
         # TODO: Check connection is not reset.
         return self._backend
 
+    def discover_device(self):
+        # TODO: Provide patch to btlewrap.
+        services = self._backend.services()
+        r4s_service = self.get_prop_by_uuid(services, _UUID_SRV_R4S)
+        if r4s_service is None:
+            raise BluetoothBackendException('unsupported device')
+        generic_srv = self.get_prop_by_uuid(services, _UUID_SRV_GENERIC)
+        generic_chars = generic_srv.getCharacteristics()
+
+        chars = r4s_service.getCharacteristics()
+        desc = r4s_service.getDescriptors()
+        device_name_char = self.get_prop_by_uuid(generic_chars, _UUID_CHAR_GENERIC)
+        conn_params_char = self.get_prop_by_uuid(generic_chars, _UUID_CHAR_CONN)
+        cmd_char = self.get_prop_by_uuid(chars, _UUID_CHAR_CMD)
+        cccd = self.get_prop_by_uuid(desc, _UUID_CCCD)
+
+        self.device_name = self._backend.read_handle(device_name_char.valHandle)
+        conn_params = self._backend.read_handle(conn_params_char.valHandle)
+        min_conn, max_conn, lat, timeout = conn_params[0:2], conn_params[2:4], conn_params[4:6], conn_params[6:8]
+
+        # TODO: Init it better.
+        self.device_name_handle = device_name_char.valHandle
+        self.conn_param_handle = conn_params_char.valHandle
+        self.cmd_handle = cmd_char.valHandle
+        self.ccc_handle = cccd.valHandle
+
+    def get_prop_by_uuid(self, objs, uuid):
+        for el in objs:
+            if el.uuid == uuid:
+                return el
+        return None
+
     def disconnect(self):
-        if self._conn is not None:
-            self._conn.__del__()
-        self._conn = None
-        self._backend = None
-        self._is_auth = False
+        try:
+            if self._conn is not None:
+                self._conn.__del__()
+            self._conn = None
+            self._backend = None
+            self._is_auth = False
+        except AttributeError:
+            pass
 
     def _try_auth(self):
         i = 0
@@ -94,7 +144,7 @@ class RedmondDevice:
     def _send_subscribe(self):
         # for the newer models a magic number must be written before we can read the current data
         data = bytes(_GATT_ENABLE_NOTIFICATION)
-        self._backend.write_handle(_HANDLE_W_SUBSCRIBE, data)  # pylint: disable=no-member
+        self._backend.write_handle(self.ccc_handle, data)  # pylint: disable=no-member
         return True
 
     def do_command(self, cmd):
@@ -117,7 +167,7 @@ class RedmondDevice:
         # Write and wait for response in self.handleNotification.
         ## TODO: Define connection interval.
         self._backend._DATA_MODE_LISTEN = cmd.wrapped(self._iter)
-        success = self._backend.wait_for_notification(_HANDLE_W_CMD, self, 3)
+        success = self._backend.wait_for_notification(self.cmd_handle, self, 3)
         if not success or self._data is None:
             return None
 

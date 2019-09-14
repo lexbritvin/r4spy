@@ -1,6 +1,6 @@
 from r4s.protocol import int_to_arr
-from r4s.protocol.redmond.responses import SuccessResponse, ErrorResponse, VersionResponse
-from r4s.protocol.redmond.responses_kettle import KettleResponse
+from r4s.protocol.redmond.response.common import SuccessResponse, ErrorResponse, VersionResponse
+from r4s.protocol.redmond.response.kettle import KettleResponse
 
 _DATA_BEGIN_BYTE = 0x55
 _DATA_END_BYTE = 0xaa
@@ -63,8 +63,12 @@ class Cmd5SetMode(RedmondCommand):
 class Cmd6Status(RedmondCommand):
     CODE = 6
 
+    def __init__(self, resp_cls):
+        self.resp_cls = resp_cls
+
     def parse_resp(self, resp):
-        return KettleResponse.from_bytes(resp)
+        # TODO: Return different responses for different devices.
+        return self.resp_cls.from_bytes(resp)
 
 
 class Cmd62SwitchSound(RedmondCommand):

@@ -1,5 +1,5 @@
-from r4s.protocol.redmond.commands import RedmondCommand
-from r4s.protocol.redmond.responses_stats import TenInformationResponse, TurningOnCountResponse
+from r4s.protocol.redmond.command.common import RedmondCommand
+from r4s.protocol.redmond.response.statistics import TenInformationResponse, TurningOnCountResponse
 
 
 class Cmd71StatsUsage(RedmondCommand):

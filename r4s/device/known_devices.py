@@ -1,104 +1,307 @@
-UNKNOWN = "UNKNOWN"
-TEMP_UART = "UART"
-COOKER_800 = "RMC-M800S"
-COOKER_92 = "RMC-M92S"
-COOKER_92C = "RMC-M92S-C"
-COOKER_92A = "RMC-M92S-A"
-COOKER_903 = "RFS-KMC005"
-COOKER_40 = "RMC-M40S"
-COOKER_41 = "RMK-M41S"
-COOKER_42 = "RMC-M42S"
-COOKER_390 = "RMC-CBF390S"
-COOKER_RMK_390 = "RMK-CB390S"
-COOKER_RMK_391 = "RMK-CB391S"
-COOKER_100 = "RMC-CBD100S"
-COOKER_222 = "RMC-M222S"
-COOKER_222A = "RMC-M222S-A"
-COOKER_223 = "RMC-M223S"
-COOKER_224 = "RFS-KMC001"
-COOKER_225 = "RFS-KMC002"
-COOKER_226 = "RFS-KMC003"
-COOKER_227 = "RFS-KMC004"
-SCALE_FLOOR = "01144B"
-KETTLE_170 = "RK-M170S"
-COFFEE_1505 = "RCM-M1505S"
-COFFEE_1508 = "RCM-M1508S"
-COFFEE_1509 = "RCM-M1509S"
-COFFEE_1509E = "RCM-M1509S-E"
-COFFEE_1509A = "RCM-M1509S-A"
-COFFEE_1519 = "RFS-KCM002"
-SCALE_KITCHEN = "01136B"
-HEATER_4519 = "RFH-C4519S"
-HEATER_4522 = "RFH-C4522S"
-HEATER_7001 = "RCH-7001S"
-HEATER_NEOCLIMA = "Neoclima Primo Sky"
-FAN_5005 = "RAF-5005S"
-FAN_5006 = "RAF-5006S"
-KETTLE_171 = "RK-M171S"
-AIR_CLEANER_3706 = "RAC-3706S"
-HUMIDIFIER_RHF3310S = "RHF-3310S"
-IRON_250 = "RI-C250S"
-IRON_251 = "RI-A251S"
-IRON_253 = "RI-C253S"
-IRON_254 = "RI-C254S"
-IRON_255 = "RI-C255S"
-IRON_265 = "RI-C265S"
-IRON_273 = "RFS-SIN001"
-BULB_S202S = "RSP-S202S"
-SOCKET_100S = "RSP-100S"
-SOCKET_121S = "RSP-121S"
-SOCKET_103S = "RSP-103S"
-CORD_300S = "RSP-300S"
-CORD_BA_300S_MULTIDEVICE = "RSP-BA300S/1/1"
-CORD_301S = "RSP-301S"
-TPF_300S = "TPF-300S"
-HEATTER_4525S = "RCH-4525S"
-HEATTER_4527S = "RCH-4527S"
-HEATTER_4550S = "RFH-4550S"
-HEATER_4525S_26S_27S_28S = "4525S"
-HEATER_4550S_51S = "RFH-4550S"
-BOILER_302_502_802_1002S = "RSW-302S/502S/802S/1002S"
-CORD_BA300S = "RSP-BA300S"
-CORD_303_MULTIDEVICE = "RFS-HPL001"
-CORD_303 = "RSP-303S"
-HEATER_4529S = "RCH-4529"
-TRACER_08 = "RFT-S08"
-THERMOPOT_810 = "RTP-M810S"
-KETTLE_173 = "RK-M173S"
-KETTLE_200 = "RK-G200S"
-KETTLE_200_A = "RK-G200S-A"
-KETTLE_201 = "RK-G201S"
-KETTLE_202 = "RK-G202S"
-KETTLE_203 = "RK-G203S"
-KETTLE_210 = "RK-G210S"
-KETTLE_211 = "RK-G211S"
-KETTLE_212 = "RFS-KKL002"
-KETTLE_213 = "RFS-KKL004"
-KETTLE_214 = "RFS-KKL003"
-KETTLE_240 = "RK-G240S"
-CAP_01 = "BRK-01"
-HUMIDIFIER_SC_AH986M08 = "SC-AH986M08"
-HUMIDIFIER_RHF_3317S = "RHF-3317S"
-HUMIDIFIER_RHF_3318S = "RHF-3318S"
-MULTIBAKER_RMB_M650S = "RFS-KMB001"
-MULTIBAKER_RMB_M659S = "RFS-KMB002"
-MULTIBAKER_RMB_M658S = "RMB-M658S"
-WINDOW_CLEANER = "CleanRobot"
-SKY_CAM = "RG-C1S"
-SKY_CAM_100S = "SC-100S"
-SKY_CENTER = "RSC-11S"
-SKY_CONTROL = "RSC-21S"
-OVEN_5706 = "RFS-KOV001"
-OVEN_5707 = "RO-5707S"
-OVEN_5717 = "RO-5717S"
-OVEN_5727 = "RO-5727S"
-BREADMAKER_1929 = "RBM-CBM1929S"
-SOFTWARE_GATEWAY = "gateway"
-GRILL = "RFS-KGR001"
-SENSOR_31 = "RSO-31S"
-SENSOR_151 = "RSG-151S"
-SENSOR_41 = "RSM-41S"
-SENSOR_81 = "RSW-81S"
-SENSOR_61 = "RSS-61S"
-THERMOSTAT_191 = "RST-191S"
-THERMOSTAT_171 = "RSF-171S"
+from r4s.device.kettle.kettle import RedmondKettle200
+
+devices = {
+    "RMC-M800S": {
+        "cls": NotImplemented,
+    },
+    "RMC-M92S": {
+        "cls": NotImplemented,
+    },
+    "RMC-M92S-C": {
+        "cls": NotImplemented,
+    },
+    "RMC-M92S-A": {
+        "cls": NotImplemented,
+    },
+    "RFS-KMC005": {
+        "cls": NotImplemented,
+    },
+    "RMC-M40S": {
+        "cls": NotImplemented,
+    },
+    "RMK-M41S": {
+        "cls": NotImplemented,
+    },
+    "RMC-M42S": {
+        "cls": NotImplemented,
+    },
+    "RMC-CBF390S": {
+        "cls": NotImplemented,
+    },
+    "RMK-CB390S": {
+        "cls": NotImplemented,
+    },
+    "RMK-CB391S": {
+        "cls": NotImplemented,
+    },
+    "RMC-CBD100S": {
+        "cls": NotImplemented,
+    },
+    "RMC-M222S": {
+        "cls": NotImplemented,
+    },
+    "RMC-M222S-A": {
+        "cls": NotImplemented,
+    },
+    "RMC-M223S": {
+        "cls": NotImplemented,
+    },
+    "RFS-KMC001": {
+        "cls": NotImplemented,
+    },
+    "RFS-KMC002": {
+        "cls": NotImplemented,
+    },
+    "RFS-KMC003": {
+        "cls": NotImplemented,
+    },
+    "RFS-KMC004": {
+        "cls": NotImplemented,
+    },
+    "01144B": {
+        "cls": NotImplemented,
+    },
+    "RK-M170S": {
+        "cls": NotImplemented,
+    },
+    "RCM-M1505S": {
+        "cls": NotImplemented,
+    },
+    "RCM-M1508S": {
+        "cls": NotImplemented,
+    },
+    "RCM-M1509S": {
+        "cls": NotImplemented,
+    },
+    "RCM-M1509S-E": {
+        "cls": NotImplemented,
+    },
+    "RCM-M1509S-A": {
+        "cls": NotImplemented,
+    },
+    "RFS-KCM002": {
+        "cls": NotImplemented,
+    },
+    "01136B": {
+        "cls": NotImplemented,
+    },
+    "RFH-C4519S": {
+        "cls": NotImplemented,
+    },
+    "RFH-C4522S": {
+        "cls": NotImplemented,
+    },
+    "RCH-7001S": {
+        "cls": NotImplemented,
+    },
+    "Neoclima Primo Sky": {
+        "cls": NotImplemented,
+    },
+    "RAF-5005S": {
+        "cls": NotImplemented,
+    },
+    "RAF-5006S": {
+        "cls": NotImplemented,
+    },
+    "RK-M171S": {
+        "cls": NotImplemented,
+    },
+    "RAC-3706S": {
+        "cls": NotImplemented,
+    },
+    "RHF-3310S": {
+        "cls": NotImplemented,
+    },
+    "RI-C250S": {
+        "cls": NotImplemented,
+    },
+    "RI-A251S": {
+        "cls": NotImplemented,
+    },
+    "RI-C253S": {
+        "cls": NotImplemented,
+    },
+    "RI-C254S": {
+        "cls": NotImplemented,
+    },
+    "RI-C255S": {
+        "cls": NotImplemented,
+    },
+    "RI-C265S": {
+        "cls": NotImplemented,
+    },
+    "RFS-SIN001": {
+        "cls": NotImplemented,
+    },
+    "RSP-S202S": {
+        "cls": NotImplemented,
+    },
+    "RSP-100S": {
+        "cls": NotImplemented,
+    },
+    "RSP-121S": {
+        "cls": NotImplemented,
+    },
+    "RSP-103S": {
+        "cls": NotImplemented,
+    },
+    "RSP-300S": {
+        "cls": NotImplemented,
+    },
+    "RSP-BA300S/1/1": {
+        "cls": NotImplemented,
+    },
+    "RSP-301S": {
+        "cls": NotImplemented,
+    },
+    "TPF-300S": {
+        "cls": NotImplemented,
+    },
+    "RCH-4525S": {
+        "cls": NotImplemented,
+    },
+    "RCH-4527S": {
+        "cls": NotImplemented,
+    },
+    "RFH-4550S": {
+        "cls": NotImplemented,
+    },
+    "4525S": {
+        "cls": NotImplemented,
+    },
+    "RSW-302S/502S/802S/1002S": {
+        "cls": NotImplemented,
+    },
+    "RSP-BA300S": {
+        "cls": NotImplemented,
+    },
+    "RFS-HPL001": {
+        "cls": NotImplemented,
+    },
+    "RSP-303S": {
+        "cls": NotImplemented,
+    },
+    "RCH-4529": {
+        "cls": NotImplemented,
+    },
+    "RFT-S08": {
+        "cls": NotImplemented,
+    },
+    "RTP-M810S": {
+        "cls": NotImplemented,
+    },
+    "RK-M173S": {
+        "cls": NotImplemented,
+    },
+    "RK-G200S": {
+        "cls": RedmondKettle200,
+    },
+    "RK-G200S-A": {
+        "cls": NotImplemented,
+    },
+    "RK-G201S": {
+        "cls": NotImplemented,
+    },
+    "RK-G202S": {
+        "cls": NotImplemented,
+    },
+    "RK-G203S": {
+        "cls": NotImplemented,
+    },
+    "RK-G210S": {
+        "cls": NotImplemented,
+    },
+    "RK-G211S": {
+        "cls": NotImplemented,
+    },
+    "RFS-KKL002": {
+        "cls": NotImplemented,
+    },
+    "RFS-KKL004": {
+        "cls": NotImplemented,
+    },
+    "RFS-KKL003": {
+        "cls": NotImplemented,
+    },
+    "RK-G240S": {
+        "cls": NotImplemented,
+    },
+    "BRK-01": {
+        "cls": NotImplemented,
+    },
+    "SC-AH986M08": {
+        "cls": NotImplemented,
+    },
+    "RHF-3317S": {
+        "cls": NotImplemented,
+    },
+    "RHF-3318S": {
+        "cls": NotImplemented,
+    },
+    "RFS-KMB001": {
+        "cls": NotImplemented,
+    },
+    "RFS-KMB002": {
+        "cls": NotImplemented,
+    },
+    "RMB-M658S": {
+        "cls": NotImplemented,
+    },
+    "CleanRobot": {
+        "cls": NotImplemented,
+    },
+    "RG-C1S": {
+        "cls": NotImplemented,
+    },
+    "SC-100S": {
+        "cls": NotImplemented,
+    },
+    "RSC-11S": {
+        "cls": NotImplemented,
+    },
+    "RSC-21S": {
+        "cls": NotImplemented,
+    },
+    "RFS-KOV001": {
+        "cls": NotImplemented,
+    },
+    "RO-5707S": {
+        "cls": NotImplemented,
+    },
+    "RO-5717S": {
+        "cls": NotImplemented,
+    },
+    "RO-5727S": {
+        "cls": NotImplemented,
+    },
+    "RBM-CBM1929S": {
+        "cls": NotImplemented,
+    },
+    "gateway": {
+        "cls": NotImplemented,
+    },
+    "RFS-KGR001": {
+        "cls": NotImplemented,
+    },
+    "RSO-31S": {
+        "cls": NotImplemented,
+    },
+    "RSG-151S": {
+        "cls": NotImplemented,
+    },
+    "RSM-41S": {
+        "cls": NotImplemented,
+    },
+    "RSW-81S": {
+        "cls": NotImplemented,
+    },
+    "RSS-61S": {
+        "cls": NotImplemented,
+    },
+    "RST-191S": {
+        "cls": NotImplemented,
+    },
+    "RSF-171S": {
+        "cls": NotImplemented,
+    },
+}

@@ -1,5 +1,5 @@
 from r4s.protocol import int_from_bytes, int_to_arr
-from r4s.protocol.redmond.responses import RedmondResponse
+from r4s.protocol.redmond.response.common import RedmondResponse
 
 
 class EventInCalendarResponse(RedmondResponse):
