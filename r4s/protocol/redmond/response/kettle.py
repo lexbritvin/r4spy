@@ -1,4 +1,4 @@
-from r4s.protocol import int_from_bytes, int_to_arr
+from r4s.protocol import int_from_bytes, int_to_arr, celsius_to_fahrenheit
 from r4s.protocol.redmond.response.common import RedmondResponse
 
 MODE_BOIL = 0x00
@@ -156,9 +156,9 @@ class Kettle200AResponse(KettleResponse):
             raise ValueError("Incorrect boil time {} specified. Allowed range [{}:{}]"
                              .format(boil_time, -BOIL_TIME_MAX, BOIL_TIME_MAX))
         self.program = program
-        self.trg_temp = trg_temp
+        self.trg_temp = celsius_to_fahrenheit(trg_temp)
         self.is_sound = is_sound
-        self.curr_temp = curr_temp
+        self.curr_temp = celsius_to_fahrenheit(curr_temp)
         self.color_change_period = color_change_period
         self.state = state
         self.boil_time = boil_time
@@ -168,9 +168,9 @@ class Kettle200AResponse(KettleResponse):
     def from_bytes(cls, data: list):
         return cls(
             program=data[0],
-            trg_temp=data[2],  # TODO: Check code.
+            trg_temp=int_from_bytes(data[1:3]),  # TODO: Check code.
             is_sound=data[4],
-            curr_temp=data[5],  # TODO: Check code.
+            curr_temp=int_from_bytes(data[5:7]),  # TODO: Check code.
             color_change_period=data[6],  # TODO: Check code.
             state=data[8],
             boil_time=data[13] - BOIL_TIME_RELATIVE_DEFAULT,
@@ -180,7 +180,7 @@ class Kettle200AResponse(KettleResponse):
     def to_arr(self):
         data = [0x00] * 16
         data[0] = self.program
-        data[2] = self.trg_temp
+        data[2] = self.trg_temp # TODO: Convert to F.
         data[4] = self.is_sound
         data[5] = self.curr_temp
         data[6] = self.color_change_period

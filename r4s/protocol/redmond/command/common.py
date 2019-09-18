@@ -45,19 +45,21 @@ class Cmd4Off(RedmondCommand):
     resp_cls = SuccessResponse
 
 
-class Cmd5SetMode(RedmondCommand):
+class FullProgram:
+
+    def to_arr(self):
+        raise NotImplemented
+
+
+class Cmd5SetProgram(RedmondCommand):
     CODE = 5
     resp_cls = SuccessResponse
 
-    def __init__(self, mode, temp, boil_time):
-        self.status = KettleResponse(
-            mode=mode,
-            trg_temp=temp,
-            boil_time=boil_time
-        )
+    def __init__(self, program: FullProgram):
+        self.program = program
 
     def to_arr(self):
-        return self.status.to_arr()
+        return self.program.to_arr()
 
 
 class Cmd6Status(RedmondCommand):
@@ -67,7 +69,6 @@ class Cmd6Status(RedmondCommand):
         self.resp_cls = resp_cls
 
     def parse_resp(self, resp):
-        # TODO: Return different responses for different devices.
         return self.resp_cls.from_bytes(resp)
 
 

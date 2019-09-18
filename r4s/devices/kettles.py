@@ -1,10 +1,11 @@
-from datetime import timedelta
-
-from r4s.device.device import RedmondDevice
+from bluepy.btle import Peripheral
 
 from threading import Lock
 
-from r4s.protocol.redmond.command.common import CmdFw, Cmd5SetMode, Cmd3On, Cmd6Status, Cmd4Off, CmdSync
+from r4s.devices.base import RedmondDevice
+from r4s.discovery import DeviceBTAttrs
+from r4s.protocol.redmond.command.common import CmdFw, Cmd5SetProgram, Cmd3On, Cmd6Status, Cmd4Off, CmdSync
+from r4s.protocol.redmond.command.kettle import FullKettle200Program
 from r4s.protocol.redmond.command.lights import Cmd51GetLights
 from r4s.protocol.redmond.command.statistics import Cmd71StatsUsage, Cmd80StatsTimes
 from r4s.protocol.redmond.response.kettle import MODE_BOIL, BOIL_TEMP, BOIL_TIME_MAX, KettleResponse, Kettle200Response
@@ -19,37 +20,30 @@ class RedmondKettle200(RedmondDevice):
 
     status_resp_cls = Kettle200Response
 
-    def __init__(self, mac, backend, cache_timeout=600, retries=3, auth_timeout=5, adapter='hci0'):
+    def __init__(self, key: bytearray, peripheral: Peripheral, conn_args: tuple, bt_attrs: DeviceBTAttrs):
         """
         Initialize a Mi Flora Poller for the given MAC address.
         """
 
-        super().__init__(mac, backend, cache_timeout, retries, auth_timeout, adapter)
-        self._cache = None
-        self._cache_timeout = timedelta(seconds=cache_timeout)
-        self._last_read = None
+        super().__init__(key, peripheral, conn_args, bt_attrs)
         self._fw_last_read = None
-        self.ble_timeout = 10
         self.lock = Lock()
 
-        self._available = False
         self.status = None
         self.stats_ten = None
         self.stats_times = None
         self._is_busy = False
-        self._is_auth = False
         self._cmd_handlers.update({
             Cmd71StatsUsage.CODE: self.handler_cmd_71_stats,
             Cmd80StatsTimes.CODE: self.handler_cmd_80_stats,
             Cmd6Status.CODE: self.handler_cmd_6_status,
         })
-
         # TODO: Prepare config for lights/backlight. Use current or overwrite.
 
     def first_connect(self):
         # TODO: Rework is_busy to Lock.
         self._is_busy = True
-        self._iter = 0
+
         # Clear known.
         self._firmware_version = None
         self.status = None
@@ -70,9 +64,10 @@ class RedmondKettle200(RedmondDevice):
         # TODO: Maybe we need to sync after every reconnection to prevent disconnect.
         if on_off:
             boil_time = self.status.boil_time if self.status else -BOIL_TIME_MAX
+            program = FullKettle200Program(mode, temp, boil_time)
             cmds = [
                 CmdSync(),
-                Cmd5SetMode(mode, temp, boil_time),
+                Cmd5SetProgram(program),
                 Cmd3On(),
                 Cmd6Status(self.status_resp_cls),
             ]
@@ -97,3 +92,40 @@ class RedmondKettle200(RedmondDevice):
 
     def handler_cmd_6_status(self, resp: KettleResponse):
         self.status = resp
+
+
+kettles = {
+    "RK-M170S": {
+        "cls": NotImplemented,
+    },
+    "RK-M171S": {
+        "cls": NotImplemented,
+    },
+    "RK-M173S": {
+        "cls": NotImplemented,
+    },
+    "RK-G200S": {
+        "cls": RedmondKettle200,
+    },
+    "RK-G200S-A": {
+        "cls": NotImplemented,
+    },
+    "RK-G201S": {
+        "cls": RedmondKettle200,
+    },
+    "RK-G202S": {
+        "cls": RedmondKettle200,
+    },
+    "RK-G203S": {
+        "cls": RedmondKettle200,
+    },
+    "RK-G210S": {
+        "cls": RedmondKettle200,
+    },
+    "RK-G211S": {
+        "cls": RedmondKettle200,
+    },
+    "RK-G240S": {
+        "cls": RedmondKettle200,
+    },
+}

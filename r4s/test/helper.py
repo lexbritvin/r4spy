@@ -1,10 +1,8 @@
 """Helpers for test cases."""
 from typing import List, Tuple
 
-from btlewrap.base import AbstractBackend
-
-from r4s.device.device import _HANDLE_R_CMD, _HANDLE_W_SUBSCRIBE, _HANDLE_W_CMD
-from r4s.device.kettle.kettle import RedmondKettle200
+from r4s.manager import _HANDLE_R_CMD, _HANDLE_W_SUBSCRIBE, _HANDLE_W_CMD
+from r4s.manager.kettle.kettle import RedmondKettle200
 from r4s.protocol.redmond.command.common import *
 from r4s.protocol.redmond.command.statistics import *
 from r4s.protocol.redmond.command.lights import *
@@ -20,6 +18,11 @@ class MockKettleBackend(AbstractBackend):
     is wrong, so is the behaviour of this sensor! Thus is always
     makes sensor to also test against a real sensor.
     """
+
+    def services(self):
+        return {
+
+        }.values()
 
     def __init__(self, adapter: str = 'hci0', address_type: str = 'public'):
         super(MockKettleBackend, self).__init__(adapter)

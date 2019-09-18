@@ -1,6 +1,37 @@
-from r4s.protocol import int_to_arr
-from r4s.protocol.redmond.command.common import RedmondCommand
-from r4s.protocol.redmond.response.kettle import FreshWaterSettingsResponse, FreshWaterResponse
+from r4s.protocol import int_to_arr, fahrenheit_to_celsius, float_to_arr
+from r4s.protocol.redmond.command.common import RedmondCommand, FullProgram
+from r4s.protocol.redmond.response.kettle import FreshWaterSettingsResponse, FreshWaterResponse, \
+    BOIL_TIME_RELATIVE_DEFAULT
+
+
+class FullKettleProgram(FullProgram):
+
+    def to_arr(self):
+        raise NotImplemented
+
+
+class FullKettle200Program(FullProgram):
+
+    def __init__(self, program, trg_temp, boil_time):
+        self.program = program
+        self.trg_temp = trg_temp
+        self.boil_time = boil_time
+
+    def to_arr(self):
+        data = [0] * 16
+        data[0] = self.program
+        data[2] = self.trg_temp
+        data[13] = BOIL_TIME_RELATIVE_DEFAULT + self.boil_time
+        raise NotImplemented
+
+
+class Kettle200AProgram(FullKettle200Program):
+
+    def to_arr(self):
+        data = super().to_arr()
+        c_temp = fahrenheit_to_celsius(self.trg_temp)
+        data[1:3] = float_to_arr(c_temp)[0:2]
+        return data
 
 
 class Cmd81(RedmondCommand):

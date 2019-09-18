@@ -1,9 +1,9 @@
 """Tests for the BluetoothInterface class."""
 import unittest
 
-from btlewrap import BluetoothBackendException
+from r4s.manager import DeviceManager
 
-from r4s.device.kettle.kettle import RedmondKettle200
+from r4s.manager.kettle.kettle import RedmondKettle200
 from r4s.protocol.redmond.response.kettle import MODE_BOIL, BOIL_TEMP, STATE_ON, STATE_OFF, MODE_HEAT, MAX_TEMP
 from r4s.test.helper import MockKettleBackend
 
@@ -32,10 +32,10 @@ class TestBluetoothInterface(unittest.TestCase):
                 kettle.first_connect()
                 self.assertFalse(kettle._is_auth)
                 # Check that connection is done properly.
-                self.assertIsNotNone(kettle._backend)
+                self.assertIsNotNone(kettle._peripheral)
         except BluetoothBackendException:
             pass
-        self.assertIsNone(kettle._backend)
+        self.assertIsNone(kettle._peripheral)
         self.assertFalse(backend.check_key(kettle._key))
 
         # When ready to pair and key is not authed.
@@ -124,6 +124,11 @@ class TestBluetoothInterface(unittest.TestCase):
 
     @staticmethod
     def get_kettle():
+        manager = DeviceManager(
+            key=[0xbb] * 8,
+            backend=MockKettleBackend,
+            ble_timeout=0
+        )
         kettle = RedmondKettle200(
             'test_mac',
             cache_timeout=600,
