@@ -1,3 +1,10 @@
+from r4s.devices.base import RedmondDevice
+
+
+class Multicooker92(RedmondDevice):
+    pass
+
+
 cookers = {
     "RMB-M658S": {
         "cls": NotImplemented,
@@ -57,7 +64,7 @@ cookers = {
         "cls": NotImplemented,
     },
     "RMC-M92S": {
-        "cls": NotImplemented,
+        "cls": Multicooker92,
     },
     "RMC-M92S-C": {
         "cls": NotImplemented,
@@ -77,7 +84,6 @@ cookers = {
     "RMC-M800S": {
         "cls": NotImplemented,
     },
-
     "RMK-M41S": {
         "cls": NotImplemented,
     },
