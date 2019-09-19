@@ -1,7 +1,7 @@
 from r4s.protocol import int_to_arr, fahrenheit_to_celsius, float_to_arr
 from r4s.protocol.redmond.command.common import RedmondCommand, FullProgram
 from r4s.protocol.redmond.response.kettle import FreshWaterSettingsResponse, FreshWaterResponse, \
-    BOIL_TIME_RELATIVE_DEFAULT
+    BOIL_TIME_RELATIVE_DEFAULT, KettleResponse
 
 
 class FullKettleProgram(FullProgram):
@@ -13,6 +13,8 @@ class FullKettleProgram(FullProgram):
 class FullKettle200Program(FullProgram):
 
     def __init__(self, program, trg_temp, boil_time):
+        if not KettleResponse.is_allowed_temp(program, trg_temp):
+            raise ValueError('Incorrect temp')
         self.program = program
         self.trg_temp = trg_temp
         self.boil_time = boil_time
@@ -22,7 +24,7 @@ class FullKettle200Program(FullProgram):
         data[0] = self.program
         data[2] = self.trg_temp
         data[13] = BOIL_TIME_RELATIVE_DEFAULT + self.boil_time
-        raise NotImplemented
+        return data
 
 
 class Kettle200AProgram(FullKettle200Program):

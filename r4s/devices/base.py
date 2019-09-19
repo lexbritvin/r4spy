@@ -1,12 +1,8 @@
-from bluepy.btle import Peripheral, BTLEException
+from r4s.manager import Peripheral, BTLEException
 from r4s.discovery import DeviceBTAttrs
 from r4s import R4sUnexpectedResponse
 from r4s.protocol.redmond.command.common import CmdAuth, CmdFw, RedmondCommand
 from r4s.protocol.redmond.response.common import SuccessResponse, VersionResponse
-
-_HANDLE_R_CMD = 0x000b
-_HANDLE_W_SUBSCRIBE = 0x000c
-_HANDLE_W_CMD = 0x000e
 
 _GATT_ENABLE_NOTIFICATION = [0x01, 0x00]
 
@@ -33,7 +29,6 @@ class RedmondDevice:
         }
 
     def __enter__(self):
-        self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -41,12 +36,6 @@ class RedmondDevice:
 
     def __del__(self):
         self.disconnect()
-
-    def connect(self):
-        if self._peripheral._helper is None:
-            self._peripheral.connect(*self._conn_args)
-        if not self._is_auth:
-            self.try_auth()
 
     def disconnect(self):
         try:

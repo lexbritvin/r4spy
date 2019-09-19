@@ -4,3 +4,7 @@ class UnsupportedDeviceException(Exception):
 
 class R4sUnexpectedResponse(Exception):
     pass
+
+
+class R4sAuthFailed(Exception):
+    pass

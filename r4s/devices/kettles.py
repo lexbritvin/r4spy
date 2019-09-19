@@ -39,6 +39,7 @@ class RedmondKettle200(RedmondDevice):
         self.stats_ten = None
 
         self.fetch_firmware()
+        self.send_sync()
         self.fetch_statistics()
         self.fetch_status()
 
@@ -50,18 +51,23 @@ class RedmondKettle200(RedmondDevice):
         # Set program.
         program = FullKettle200Program(mode, temp, boil_time)
         self.do_command(Cmd5SetProgram(program))
+        self.fetch_status()
 
     def switch_on(self):
         self.do_command(Cmd3On())
+        self.fetch_status()
 
     def switch_off(self):
         self.do_command(Cmd4Off())
+        self.fetch_status()
 
     def fetch_status(self):
         self.do_commands([
-            CmdSync(),
             Cmd6Status(self.status_resp_cls),
         ])
+
+    def send_sync(self):
+        self.do_command(CmdSync())
 
     def fetch_firmware(self):
         self.do_command(CmdFw())

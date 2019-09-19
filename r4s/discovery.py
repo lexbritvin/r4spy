@@ -4,14 +4,14 @@ from bluepy.btle import Peripheral, UUID
 
 from r4s import UnsupportedDeviceException
 
-_UUID_SRV_R4S = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"  # GATT Service Custom: R4S custom service.
-_UUID_SRV_GENERIC = 0x1800  # GATT Service: Generic Access.
+UUID_SRV_R4S = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"  # GATT Service Custom: R4S custom service.
+UUID_SRV_GENERIC = 0x1800  # GATT Service: Generic Access.
 
-_UUID_CCCD = "00002902-0000-1000-8000-00805f9b34fb"  # GATT Descriptors: Client Characteristic Configuration Descriptor.
-_UUID_CHAR_GENERIC = 0x2a00  # GATT Characteristics - Device Name.
-_UUID_CHAR_CONN = 0x2a04  # GATT Characteristics - Peripheral Preferred Connection Parameters.
-_UUID_CHAR_CMD = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"  # GATT Characteristics Custom: Write commands.
-_UUID_CHAR_RSP = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  # GATT Characteristics Custom: Read commands responses.
+UUID_CCCD = "00002902-0000-1000-8000-00805f9b34fb"  # GATT Descriptors: Client Characteristic Configuration Descriptor.
+UUID_CHAR_GENERIC = 0x2a00  # GATT Characteristics - Device Name.
+UUID_CHAR_CONN = 0x2a04  # GATT Characteristics - Peripheral Preferred Connection Parameters.
+UUID_CHAR_CMD = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"  # GATT Characteristics Custom: Write commands.
+UUID_CHAR_RSP = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  # GATT Characteristics Custom: Read commands responses.
 
 
 class DeviceBTAttrs:
@@ -69,23 +69,23 @@ class DeviceDiscovery:
     def _discover_device(attrs, peripheral):
         # Services.
         services = peripheral.discoverServices()
-        r4s_custom_uuid = UUID(_UUID_SRV_R4S)
+        r4s_custom_uuid = UUID(UUID_SRV_R4S)
         if r4s_custom_uuid not in services:
             raise UnsupportedDeviceException('The device is not supported.')
-        r4s_service = services[UUID(_UUID_SRV_R4S)]
-        generic_srv = services[UUID(_UUID_SRV_GENERIC)]
+        r4s_service = services[UUID(UUID_SRV_R4S)]
+        generic_srv = services[UUID(UUID_SRV_GENERIC)]
         # Main characteristics.
         if attrs.name is None:
-            device_name_char = generic_srv.getCharacteristics(_UUID_CHAR_GENERIC)[0]
+            device_name_char = generic_srv.getCharacteristics(UUID_CHAR_GENERIC)[0]
             # Generic params.
             attrs.name = peripheral.readCharacteristic(device_name_char.valHandle).decode("utf-8")
 
         # R4S characteristics.
         if attrs.cmd is None:
-            cmd_char = r4s_service.getCharacteristics(_UUID_CHAR_CMD)[0]
+            cmd_char = r4s_service.getCharacteristics(UUID_CHAR_CMD)[0]
             attrs.cmd = cmd_char.valHandle
         if attrs.ccc is None:
-            cccd = r4s_service.getDescriptors(_UUID_CCCD)[0]
+            cccd = r4s_service.getDescriptors(UUID_CCCD)[0]
             attrs.ccc = cccd.handle
 
 

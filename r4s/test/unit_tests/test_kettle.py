@@ -1,82 +1,48 @@
 """Tests for the BluetoothInterface class."""
 import unittest
 
+from r4s import R4sAuthFailed
+from r4s.discovery import DeviceDiscovery
 from r4s.manager import DeviceManager
 
-from r4s.manager.kettle.kettle import RedmondKettle200
 from r4s.protocol.redmond.response.kettle import MODE_BOIL, BOIL_TEMP, STATE_ON, STATE_OFF, MODE_HEAT, MAX_TEMP
-from r4s.test.helper import MockKettleBackend
+from r4s.test.helper import BTLEException, ADDR_TYPE_RANDOM
+from r4s.test.peripherals.kettle import MockKettle200Peripheral as Peripheral
+
+import r4s.manager
+r4s.manager.Peripheral = Peripheral
+r4s.manager.ADDR_TYPE_RANDOM = ADDR_TYPE_RANDOM
+r4s.manager.BTLEException = BTLEException
 
 
-class TestBluetoothInterface(unittest.TestCase):
+class TestKettle200(unittest.TestCase):
     """Tests for the BluetoothInterface class."""
+    model = 'RK-G200S'
 
     def test_first_connect(self):
         """Test the usage of the with statement."""
+        manager = self.get_manager()
 
-        kettle, backend = self.get_kettle()
-
-        try:
-            # Try get info without connection.
-            kettle.first_connect()
-        except BluetoothBackendException:
-            pass
-        self.assertIsNone(kettle._firmware_version)
-        self.assertIsNone(kettle.status)
-        self.assertIsNone(kettle.stats_ten)
-
-        # When key is not authed and not ready to pair.
-        backend.ready_to_pair = False
-        try:
-            with kettle:
-                kettle.first_connect()
-                self.assertFalse(kettle._is_auth)
-                # Check that connection is done properly.
-                self.assertIsNotNone(kettle._peripheral)
-        except BluetoothBackendException:
-            pass
-        self.assertIsNone(kettle._peripheral)
-        self.assertFalse(backend.check_key(kettle._key))
-
-        # When ready to pair and key is not authed.
-        backend.ready_to_pair = True
-        with kettle:
+        # When key is authed.
+        with manager.connect(self.model) as kettle:
             kettle.first_connect()
             self.assertTrue(kettle._is_auth)
-        self.assertTrue(backend.check_key(kettle._key))
-        # Check data.
-        self.assertListEqual(kettle._firmware_version, backend.fw_version.version)
-        self.assertIsNotNone(kettle.status)
-        self.assertIsNotNone(kettle.stats_ten)
-        self.assertEqual(kettle.stats_ten, backend.statistics)
-        self.assertEqual(kettle.status, backend.status)
+            self.assertTrue(kettle._peripheral.check_key(kettle._key))
+            # Check data.
+            self.assertListEqual(kettle._firmware_version, kettle._peripheral.fw_version.version)
+            self.assertIsNotNone(kettle.status)
+            self.assertIsNotNone(kettle.stats_ten)
+            self.assertEqual(kettle.stats_ten, kettle._peripheral.statistics)
+            self.assertEqual(kettle.status, kettle._peripheral.status)
 
-        # When not ready to pair and key changed and unauthed.
-        backend.ready_to_pair = False
-        old_key = kettle._key
-        kettle._key = [0xaa] * 8
+        # When key is not authed
+        manager._key = [0xaa] * 8
         try:
-            with kettle:
+            with manager.connect(self.model) as kettle:
                 kettle.first_connect()
                 self.assertFalse(kettle._is_auth)
-        except BluetoothBackendException:
-            pass
-        self.assertFalse(backend.check_key(kettle._key))
-
-        # When not ready to pair and key is authed.
-        kettle._key = old_key
-        with kettle:
-            kettle.first_connect()
-            self.assertTrue(kettle._is_auth)
-        self.assertTrue(backend.check_key(kettle._key))
-
-        # When key is not valid.
-        kettle._key = [0xaa] * 2
-        try:
-            with kettle:
-                kettle.first_connect()
-        except ValueError:
-            self.assertFalse(kettle._is_auth)
+        except R4sAuthFailed:
+            self.assertTrue(True)
 
         # TODO: Test sync.
         # TODO: Implement/test cache.
@@ -85,37 +51,35 @@ class TestBluetoothInterface(unittest.TestCase):
 
     def test_set_mode(self):
         # Register kettle.
-        kettle, backend = self.get_kettle()
-        backend.ready_to_pair = True
-        with kettle:
-            kettle.first_connect()
+        manager = self.get_manager()
+        kettle = manager.connect(self.model)
+        backend = kettle._peripheral
 
-        # Set kettle to boil.
-        with kettle:
-            kettle.set_mode(True, MODE_BOIL)
+        kettle.first_connect()
+        kettle.set_mode(MODE_BOIL)
         self.assertEqual(kettle.status, backend.status)
         self.assertEqual(backend.status.trg_temp, BOIL_TEMP)
+        # Check that the kettle was not enabled to run set mode.
+        self.assertEqual(kettle.status.state, STATE_OFF)
+        kettle.switch_on()
         self.assertEqual(kettle.status.state, STATE_ON)
 
-        # Test disable.
-        with kettle:
-            kettle.set_mode(False)
+        kettle.switch_off()
         self.assertEqual(kettle.status, backend.status)
         self.assertEqual(kettle.status.state, STATE_OFF)
 
         # Test incorrect temp.
         old_temp = backend.status.trg_temp
         try:
-            with kettle:
-                kettle.set_mode(True, MODE_HEAT, MAX_TEMP + 1)
+            kettle.set_mode(MODE_HEAT, MAX_TEMP + 1)
+            self.assertTrue(False)
         except ValueError:
             pass
         self.assertEqual(kettle.status, backend.status)
         self.assertEqual(backend.status.trg_temp, old_temp)
 
         # Test correct temp.
-        with kettle:
-            kettle.set_mode(True, MODE_HEAT, MAX_TEMP)
+        kettle.set_mode(MODE_HEAT, MAX_TEMP)
         self.assertEqual(kettle.status, backend.status)
         self.assertEqual(backend.status.trg_temp, MAX_TEMP)
         # TODO: Test status change when on.
@@ -123,18 +87,11 @@ class TestBluetoothInterface(unittest.TestCase):
         # TODO: Test all responses.
 
     @staticmethod
-    def get_kettle():
+    def get_manager():
         manager = DeviceManager(
             key=[0xbb] * 8,
-            backend=MockKettleBackend,
-            ble_timeout=0
+            discovery=DeviceDiscovery(),
+            ble_timeout=0,
+            retries=1
         )
-        kettle = RedmondKettle200(
-            'test_mac',
-            cache_timeout=600,
-            adapter='hci0',
-            backend=MockKettleBackend,
-            retries=1,
-            auth_timeout=1,
-        )
-        return kettle, kettle._bt_interface._backend
+        return manager

@@ -1,7 +1,12 @@
 import time
-from bluepy.btle import Peripheral, ADDR_TYPE_RANDOM, BTLEException
+
+try:
+    from bluepy.btle import Peripheral, ADDR_TYPE_RANDOM, BTLEException
+except ImportError:
+    from r4s.test.helper import MockPeripheral as Peripheral, ADDR_TYPE_RANDOM, BTLEException
+
 from r4s.discovery import DeviceDiscovery
-from r4s import UnsupportedDeviceException
+from r4s import UnsupportedDeviceException, R4sAuthFailed
 import logging
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,6 +21,8 @@ class DeviceManager:
     _retry_i = 0
 
     def __init__(self, key, discovery: DeviceDiscovery, iface=0, ble_timeout=3, retries=10):
+        if len(key) != 8:
+            raise ValueError('Invalid key')
         self._discovery = discovery
         self._ble_timeout = ble_timeout
         self._retries = retries
@@ -38,13 +45,12 @@ class DeviceManager:
             # Try auth before any actions.
             is_auth = device.try_auth()
             if not is_auth:
-                raise BTLEException('could not authorise')
+                raise R4sAuthFailed()
 
-        except BTLEException as e:
-            _LOGGER.debug(e.message)
+        except (BTLEException, R4sAuthFailed) as e:
+            _LOGGER.debug(e)
             # Disconnect and try again.
             peripheral.disconnect()
-            device = None
 
             last_error = e
             if self._retry_i < self._retries:
@@ -52,18 +58,16 @@ class DeviceManager:
                 self._retry_i += 1
                 time.sleep(self._ble_timeout)
                 return self.connect(mac)
+            else:
+                raise
 
         except UnsupportedDeviceException as e:
             _LOGGER.debug('unsupported device')
-            last_error = e
             peripheral.disconnect()
-            device = None
+            raise
 
         finally:
             self._retry_i = 0
-
-        if device is None:
-            raise last_error
 
         # Free to send any commands.
         return device
