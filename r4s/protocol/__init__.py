@@ -28,7 +28,6 @@ def float_to_arr(f: float):
     and numbers more than a byte 255. It is not clear if such numbers
     ever appear in the app.
     """
-    # TODO: Comment.
     f2 = 1.0 if f > 0.0 else -1.0
     f_abs = float(abs(f))
     i = 0
