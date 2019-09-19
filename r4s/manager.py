@@ -1,4 +1,4 @@
-import time
+import asyncio
 
 try:
     from bluepy.btle import Peripheral, ADDR_TYPE_RANDOM, BTLEException
@@ -33,7 +33,12 @@ class DeviceManager:
         # TODO: Add lock on Mac.
 
     def connect(self, mac):
-        last_error = None
+        coro = asyncio.coroutine(self.async_connect)
+        future = coro(mac)
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(future)
+
+    async def async_connect(self, mac):
         peripheral = Peripheral()
         conn_args = (mac, self._addr_type, self._iface)
         try:
@@ -51,13 +56,11 @@ class DeviceManager:
             _LOGGER.debug(e)
             # Disconnect and try again.
             peripheral.disconnect()
-
-            last_error = e
             if self._retry_i < self._retries:
                 _LOGGER.debug('Auth failed. Attempt no: %s. Trying again.', self._retry_i + 1)
                 self._retry_i += 1
-                time.sleep(self._ble_timeout)
-                return self.connect(mac)
+                await asyncio.sleep(self._ble_timeout)
+                return await self.async_connect(mac)
             else:
                 raise
 

@@ -10,6 +10,7 @@ from r4s.test.helper import BTLEException, ADDR_TYPE_RANDOM
 from r4s.test.peripherals.kettle import MockKettle200Peripheral as Peripheral
 
 import r4s.manager
+
 r4s.manager.Peripheral = Peripheral
 r4s.manager.ADDR_TYPE_RANDOM = ADDR_TYPE_RANDOM
 r4s.manager.BTLEException = BTLEException
