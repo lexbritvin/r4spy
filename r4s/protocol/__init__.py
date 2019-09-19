@@ -2,22 +2,32 @@ BYTE_ORDER = 'little'
 
 
 def int_to_arr(val, byte_num, signed=False):
+    """Converts int to byte array."""
     return [x for x in val.to_bytes(byte_num, byteorder=BYTE_ORDER, signed=signed)]
 
 
 def int_from_bytes(byte_arr):
+    """Create int from byte array."""
     return int.from_bytes(byte_arr, BYTE_ORDER)
 
 
 def fahrenheit_to_celsius(c: int):
+    """Converts fahrenheit to celsius."""
     return (c - 32) * 5 / 9
 
 
 def celsius_to_fahrenheit(f: int):
+    """Converts celsius to fahrenheit."""
     return round(f * 1.8 + 32)
 
 
 def float_to_arr(f: float):
+    """R4S function to convert float to byte array.
+
+    The function has strange output for negative numbers
+    and numbers more than a byte 255. It is not clear if such numbers
+    ever appear in the app.
+    """
     # TODO: Comment.
     f2 = 1.0 if f > 0.0 else -1.0
     f_abs = float(abs(f))

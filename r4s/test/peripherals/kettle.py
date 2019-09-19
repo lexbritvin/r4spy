@@ -4,28 +4,17 @@ from r4s.protocol.redmond.command.statistics import Cmd71StatsUsage, Cmd80StatsT
 from r4s.protocol.redmond.response.common import SuccessResponse, ErrorResponse, VersionResponse
 from r4s.protocol.redmond.response.kettle import MODE_BOIL, STATE_OFF
 from r4s.protocol.redmond.response.statistics import TenInformationResponse
-from r4s.test.helper import MockPeripheral
+from .base import MockPeripheral
 
 
 class MockKettle200Peripheral(MockPeripheral):
-    """Mockup of a Backend and Sensor.
-
-    The behaviour of this Sensors is based on the knowledge there
-    is so far on the behaviour of the sensor. So if our knowledge
-    is wrong, so is the behaviour of this sensor! Thus is always
-    makes sensor to also test against a real sensor.
-    """
-
+    """Kettle 200 mock peripheral."""
 
     def __init__(self, *args):
         super().__init__(*args)
-        # Read handlers.
-        self.cmd_responses = []
-        # Write handlers.
-        self.written_handles = []
         # Write cmd handlers.
         self.cmd_handlers.update({
-            Cmd55UseBacklight.CODE: self.cmd_backlight,
+            Cmd55UseBacklight.CODE: self.cmd_set_backlight,
             Cmd50SetLights.CODE: self.cmd_set_lights,
             Cmd51GetLights.CODE: self.cmd_get_lights,
             Cmd71StatsUsage.CODE: self.cmd_stats_usage,
@@ -43,7 +32,6 @@ class MockKettle200Peripheral(MockPeripheral):
             relay_turn_on_amount=0,
         )
 
-        # TODO: Change to test other.
         self.device_cls = RedmondKettle200
         # Current status.
         self.status = self.device_cls.status_resp_cls(
@@ -55,22 +43,28 @@ class MockKettle200Peripheral(MockPeripheral):
         )
 
     def get_device_name(self):
+        """Returns device name for generic service."""
         return b'RK-G200S'
 
-    def cmd_backlight(self, data):
+    def cmd_set_backlight(self, data):
+        """Sets backlight."""
         # TODO: Handle somehow.
         return ErrorResponse(0).to_arr()
 
     def cmd_set_lights(self, data):
+        """Sets the light."""
         # TODO: Handle somehow.
         return ErrorResponse(0).to_arr()
 
     def cmd_get_lights(self, data):
+        """Gets current light settings."""
         # TODO: Return current set values.
         return [0x00, 0x28, 0x5e, 0x00, 0x00, 0xff, 0x46, 0x5e, 0x00, 0xff, 0x00, 0x64, 0x5e, 0xff, 0x00, 0x00]
 
     def cmd_stats_usage(self, data):
+        """Returns device statistics of usage."""
         return self.statistics.to_arr()
 
     def cmd_stats_times(self, data):
+        """Returns device statistics with number of uses."""
         return self.statistics.to_arr()

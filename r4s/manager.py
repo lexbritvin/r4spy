@@ -18,6 +18,7 @@ _LOGGER.addHandler(ch)
 
 # TODO: Make it Singleton.
 class DeviceManager:
+    """Discovers a device and provides a connection if it's known."""
     _retry_i = 0
 
     def __init__(self, key, discovery: DeviceDiscovery, iface=0, ble_timeout=3, retries=10):
@@ -33,12 +34,14 @@ class DeviceManager:
         # TODO: Add lock on Mac.
 
     def connect(self, mac):
+        """Provides connection to a device."""
         coro = asyncio.coroutine(self.async_connect)
         future = coro(mac)
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(future)
 
     async def async_connect(self, mac):
+        """Provides connection to a device."""
         peripheral = Peripheral()
         conn_args = (mac, self._addr_type, self._iface)
         try:

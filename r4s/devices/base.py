@@ -8,6 +8,11 @@ _GATT_ENABLE_NOTIFICATION = [0x01, 0x00]
 
 
 class RedmondDevice:
+    """
+    Base class for r4s device connection.
+
+    The class handles basic commands and provides layer to communicate with a peripheral.
+    """
     status_resp_cls = NotImplemented
     set_program_cls = NotImplemented
 
@@ -17,12 +22,14 @@ class RedmondDevice:
         self._bt_attrs = bt_attrs
         self._conn_args = conn_args
 
-        self._is_auth = False
-        self._firmware_version = None
-        self._key = key
-        self._counter = 0
-        self._curr_cmd = None
-        self._data = None
+        self._is_auth = False  # Is authenticated to make requests.
+        self._firmware_version = None  # Device firmware.
+        self._key = key  # Key to auth.
+        self._counter = 0  # Command counter. Used on every request.
+        self._curr_cmd = None  # Last command requested.
+        self._data = None  # Command response notification data.
+
+        # Command handlers to update instance data.
         self._cmd_handlers = {
             CmdAuth.CODE: self.handler_cmd_auth,
             CmdFw.CODE: self.handler_cmd_fw,

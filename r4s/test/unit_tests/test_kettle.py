@@ -6,25 +6,26 @@ from r4s.discovery import DeviceDiscovery
 from r4s.manager import DeviceManager
 
 from r4s.protocol.redmond.response.kettle import MODE_BOIL, BOIL_TEMP, STATE_ON, STATE_OFF, MODE_HEAT, MAX_TEMP
-from r4s.test.helper import BTLEException, ADDR_TYPE_RANDOM
+from r4s.test.bluepy_helper import BTLEException, ADDR_TYPE_RANDOM
 from r4s.test.peripherals.kettle import MockKettle200Peripheral as Peripheral
 
 import r4s.manager
 
+# Override module dependencies to imitate Peripheral.
 r4s.manager.Peripheral = Peripheral
 r4s.manager.ADDR_TYPE_RANDOM = ADDR_TYPE_RANDOM
 r4s.manager.BTLEException = BTLEException
 
 
 class TestKettle200(unittest.TestCase):
-    """Tests for the BluetoothInterface class."""
+    """Tests for RedmondKettle200 kettles."""
     model = 'RK-G200S'
 
     def test_first_connect(self):
-        """Test the usage of the with statement."""
+        """Test the usage of the with statement and basic connection updates."""
         manager = self.get_manager()
 
-        # When key is authed.
+        # When key is authenticated.
         with manager.connect(self.model) as kettle:
             kettle.first_connect()
             self.assertTrue(kettle._is_auth)
@@ -36,7 +37,7 @@ class TestKettle200(unittest.TestCase):
             self.assertEqual(kettle.stats_ten, kettle._peripheral.statistics)
             self.assertEqual(kettle.status, kettle._peripheral.status)
 
-        # When key is not authed
+        # When key is not authenticated.
         manager._key = [0xaa] * 8
         try:
             with manager.connect(self.model) as kettle:
@@ -51,6 +52,7 @@ class TestKettle200(unittest.TestCase):
         # TODO: Test all data structures creates correct bytes (size, possible content).
 
     def test_set_mode(self):
+        """Tests kettle set mode and switch on/off."""
         # Register kettle.
         manager = self.get_manager()
         kettle = manager.connect(self.model)
@@ -89,6 +91,7 @@ class TestKettle200(unittest.TestCase):
 
     @staticmethod
     def get_manager():
+        """Provides device manager for tests."""
         manager = DeviceManager(
             key=[0xbb] * 8,
             discovery=DeviceDiscovery(),

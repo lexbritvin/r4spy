@@ -11,16 +11,12 @@ from r4s.protocol.redmond.response.statistics import TenInformationResponse, Tur
 
 class RedmondKettle200(RedmondDevice):
     """"
-    A class to read data from Mi Flora plant sensors.
+    Redmond kettle 200 connection class.
     """
 
     status_resp_cls = Kettle200Response
 
     def __init__(self, key: bytearray, peripheral: Peripheral, conn_args: tuple, bt_attrs: DeviceBTAttrs):
-        """
-        Initialize a Mi Flora Poller for the given MAC address.
-        """
-
         super().__init__(key, peripheral, conn_args, bt_attrs)
 
         self.status = None
