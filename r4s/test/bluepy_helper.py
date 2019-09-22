@@ -1,4 +1,6 @@
 """Bluepy copy of internal classes to exclude dependency on the module."""
+import binascii
+
 ADDR_TYPE_PUBLIC = "public"
 ADDR_TYPE_RANDOM = "random"
 

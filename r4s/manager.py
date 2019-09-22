@@ -1,19 +1,16 @@
 import asyncio
 
 try:
-    from bluepy.btle import Peripheral, ADDR_TYPE_RANDOM, BTLEException
+    from bluepy.btle import Peripheral, ADDR_TYPE_RANDOM, BTLEException, BTLEDisconnectError
 except ImportError:
-    from r4s.test.helper import MockPeripheral as Peripheral, ADDR_TYPE_RANDOM, BTLEException
+    from r4s.test.bluepy_helper import ADDR_TYPE_RANDOM, BTLEException, BTLEDisconnectError
+    from r4s.test.peripherals.base import MockPeripheral as Peripheral
 
 from r4s.discovery import DeviceDiscovery
 from r4s import UnsupportedDeviceException, R4sAuthFailed
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel('DEBUG')
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-_LOGGER.addHandler(ch)
 
 
 # TODO: Make it Singleton.
@@ -25,6 +22,7 @@ class DeviceManager:
         if len(key) != 8:
             raise ValueError('Invalid key')
         self._discovery = discovery
+        self._devices = {}
         self._ble_timeout = ble_timeout
         self._retries = retries
         self._addr_type = ADDR_TYPE_RANDOM
@@ -41,39 +39,59 @@ class DeviceManager:
         return loop.run_until_complete(future)
 
     async def async_connect(self, mac):
-        """Provides connection to a device."""
+        """Provides connection to a device in async way."""
         peripheral = Peripheral()
+        i = 0
+        device = None
+        err = None
+        while i < self._retries:
+            # Retry.
+            if i != 0:
+                _LOGGER.debug('Auth failed. Attempt no: %s. Trying again.', i + 1)
+                await asyncio.sleep(self._ble_timeout)
+
+            # Try connect.
+            device, err = self._do_connect(peripheral, mac)
+            if device is not None:
+                break  # Success.
+
+            i += 1
+
+        if device is None:
+            raise err
+
+        self._devices[mac] = device
+        return device
+
+    def _do_connect(self, peripheral, mac):
+        """Does actual connection and tries to auth the client."""
         conn_args = (mac, self._addr_type, self._iface)
         try:
-            peripheral.connect(*conn_args)
-            # Get device class and all used handles.
-            config = self._discovery.discover_device(peripheral, mac)
-            cls = config.get_class()
-            device = cls(self._key, peripheral, conn_args, config)
+            if mac not in self._devices:
+                peripheral.connect(*conn_args)
+                # Get device class and all used characteristics.
+                bt_attrs = self._discovery.discover_device(peripheral, mac)
+                cls = bt_attrs.get_class()
+                device = cls(self._key, peripheral, conn_args, bt_attrs)
+            else:
+                device = self._devices[mac]
+                device.connect()
+
             # Try auth before any actions.
             is_auth = device.try_auth()
             if not is_auth:
                 raise R4sAuthFailed()
 
-        except (BTLEException, R4sAuthFailed) as e:
-            _LOGGER.debug(e)
-            # Disconnect and try again.
+            # Success.
+            _LOGGER.debug('Device %s (%s) connected successfully.', mac, device.bt_attrs.name)
+            return device, None
+
+        except (BTLEException, R4sAuthFailed) as err:
+            _LOGGER.exception('connection failed')
             peripheral.disconnect()
-            if self._retry_i < self._retries:
-                _LOGGER.debug('Auth failed. Attempt no: %s. Trying again.', self._retry_i + 1)
-                self._retry_i += 1
-                await asyncio.sleep(self._ble_timeout)
-                return await self.async_connect(mac)
-            else:
-                raise
+            return None, err
 
         except UnsupportedDeviceException as e:
-            _LOGGER.debug('unsupported device')
+            _LOGGER.exception('unsupported device')
             peripheral.disconnect()
             raise
-
-        finally:
-            self._retry_i = 0
-
-        # Free to send any commands.
-        return device

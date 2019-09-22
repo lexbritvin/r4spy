@@ -17,14 +17,16 @@ UUID_CHAR_RSP = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  # GATT Characteristics C
 class DeviceBTAttrs:
     """Device bluetooth attributes container."""
 
-    def __init__(self, name=None, cmd=None, ccc=None):
+    def __init__(self, name=None, cmd=None, ccc=None, unsupported=False):
         self.name = name
         self.ccc = ccc
         self.cmd = cmd
+        self.unsupported = unsupported
 
     def is_complete(self):
         """Whether the instance has all required fields."""
-        return self.name is not None and self.ccc is not None and self.cmd is not None
+        return self.name is not None and self.ccc is not None and self.cmd is not None \
+               or self.unsupported
 
     def as_dict(self):
         """Casts the instance to a dict."""
@@ -32,9 +34,12 @@ class DeviceBTAttrs:
             'name': self.name,
             'ccc': self.ccc,
             'cmd': self.cmd,
+            'unsupported': self.unsupported,
         }
 
     def get_class(self):
+        if self.unsupported:
+            raise UnsupportedDeviceException('The device is not supported.')
         """Checks known devices and returns a device class."""
         from r4s.devices import known_devices
         cls = known_devices[self.name]['cls'] if self.name in known_devices else None
@@ -63,12 +68,14 @@ class DeviceDiscovery:
 
         if mac not in self._discovered:
             self._discovered[mac] = DeviceBTAttrs()
+
         self._discover_device(self._discovered[mac], peripheral)
         # This section is reached only if previous didn't raise any errors.
-        self._on_success(self._discovered[mac])
+        self._on_success(mac, self._discovered[mac])
+
         return self._discovered[mac]
 
-    def _on_success(self, new_attr):
+    def _on_success(self, mac, new_attr):
         """Callback function when the peripheral was successfully discovered."""
         pass
 
@@ -86,7 +93,9 @@ class DeviceDiscovery:
         services = peripheral.discoverServices()
         r4s_custom_uuid = UUID(UUID_SRV_R4S)
         if r4s_custom_uuid not in services:
-            raise UnsupportedDeviceException('The device is not supported.')
+            attrs.unsupported = True
+            return
+
         r4s_service = services[UUID(UUID_SRV_R4S)]
         generic_srv = services[UUID(UUID_SRV_GENERIC)]
         # Main characteristics.
@@ -106,6 +115,7 @@ class DeviceDiscovery:
 
 class DeviceDiscoveryYml(DeviceDiscovery):
     """Discovery service with yml caching."""
+
     def __init__(self, filename):
         super().__init__()
         self.filename = filename
@@ -117,7 +127,7 @@ class DeviceDiscoveryYml(DeviceDiscovery):
         except FileNotFoundError:
             pass
 
-    def _on_success(self, new_attr=None):
+    def _on_success(self, mac, new_attr):
         """Rewrite the whole file on success discovery."""
         with open(self.filename, 'w+') as stream:
             yaml.safe_dump(self.as_dict(), stream)
